@@ -2,7 +2,6 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const path = require('path');
 const fs = require('fs');
-const sharp = require('sharp');
 const { v4: uuidv4 } = require('uuid');
 const db = require('../config/db');
 
@@ -12,12 +11,10 @@ const AVATARS_DIR = path.join(__dirname, '..', 'uploads', 'avatars');
 
 if (!fs.existsSync(AVATARS_DIR)) fs.mkdirSync(AVATARS_DIR, { recursive: true });
 
-/** POST /api/auth/login */
 const login = async (req, res) => {
   const { email, password } = req.body;
   if (!email || !password)
     return res.status(400).json({ message: 'Email et mot de passe requis.' });
-
   try {
     const result = await db.query(
       'SELECT * FROM users WHERE email = $1 AND actif = TRUE',
@@ -25,11 +22,9 @@ const login = async (req, res) => {
     );
     if (!result.rows.length)
       return res.status(401).json({ message: 'Identifiants incorrects.' });
-
     const user = result.rows[0];
     if (!(await bcrypt.compare(password, user.password_hash)))
       return res.status(401).json({ message: 'Identifiants incorrects.' });
-
     const payload = { id: user.id, email: user.email, role: user.role, nom: user.nom, prenom: user.prenom, photo_url: user.photo_url };
     const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: TOKEN_EXPIRY });
     res.json({ token, user: payload });
@@ -39,7 +34,6 @@ const login = async (req, res) => {
   }
 };
 
-/** GET /api/auth/me */
 const me = async (req, res) => {
   try {
     const r = await db.query(
@@ -51,7 +45,6 @@ const me = async (req, res) => {
   } catch (err) { res.status(500).json({ message: 'Erreur serveur.' }); }
 };
 
-/** PATCH /api/auth/profil — Mise à jour nom/prénom/téléphone */
 const mettreAJourProfil = async (req, res) => {
   const { nom, prenom, telephone } = req.body;
   try {
@@ -69,21 +62,17 @@ const mettreAJourProfil = async (req, res) => {
   }
 };
 
-/** PATCH /api/auth/mot-de-passe — Changement de mot de passe (sécurisé) */
 const changerMotDePasse = async (req, res) => {
   const { ancien_mdp, nouveau_mdp } = req.body;
   if (!ancien_mdp || !nouveau_mdp)
     return res.status(400).json({ message: 'Ancien et nouveau mot de passe requis.' });
   if (nouveau_mdp.length < 8)
-    return res.status(400).json({ message: 'Le nouveau mot de passe doit faire 8 caractères minimum.' });
-
+    return res.status(400).json({ message: 'Minimum 8 caractères.' });
   try {
     const r = await db.query('SELECT password_hash FROM users WHERE id = $1', [req.user.id]);
     if (!r.rows.length) return res.status(404).json({ message: 'Utilisateur non trouvé.' });
-
     if (!(await bcrypt.compare(ancien_mdp, r.rows[0].password_hash)))
       return res.status(401).json({ message: 'Ancien mot de passe incorrect.' });
-
     const hash = await bcrypt.hash(nouveau_mdp, SALT_ROUNDS);
     await db.query('UPDATE users SET password_hash = $1, updated_at = NOW() WHERE id = $2', [hash, req.user.id]);
     res.json({ message: 'Mot de passe modifié avec succès.' });
@@ -93,48 +82,42 @@ const changerMotDePasse = async (req, res) => {
   }
 };
 
-/** POST /api/auth/avatar — Upload photo de profil */
+// Upload avatar SANS sharp — on sauvegarde directement le fichier
 const uploadAvatar = async (req, res) => {
   if (!req.file) return res.status(400).json({ message: 'Aucun fichier envoyé.' });
-
   try {
-    const filename = `${req.user.id}_${uuidv4()}.webp`;
+    const ext = req.file.mimetype.split('/')[1].replace('jpeg', 'jpg');
+    const filename = `${req.user.id}_${uuidv4()}.${ext}`;
     const filepath = path.join(AVATARS_DIR, filename);
 
-    // Traitement avec sharp : redimensionner + convertir en WebP
-    await sharp(req.file.buffer)
-      .resize(200, 200, { fit: 'cover' })
-      .webp({ quality: 85 })
-      .toFile(filepath);
-
-    // Supprimer l'ancien avatar si existant
+    // Supprimer l'ancien avatar
     const old = await db.query('SELECT photo_url FROM users WHERE id = $1', [req.user.id]);
     if (old.rows[0]?.photo_url) {
       const oldFile = path.join(AVATARS_DIR, path.basename(old.rows[0].photo_url));
       if (fs.existsSync(oldFile)) fs.unlinkSync(oldFile);
     }
 
+    // Sauvegarder le buffer directement
+    fs.writeFileSync(filepath, req.file.buffer);
+
     const photo_url = `/uploads/avatars/${filename}`;
     await db.query('UPDATE users SET photo_url = $1, updated_at = NOW() WHERE id = $2', [photo_url, req.user.id]);
     res.json({ message: 'Photo mise à jour.', photo_url });
   } catch (err) {
     console.error('uploadAvatar:', err);
-    res.status(500).json({ message: 'Erreur lors du traitement de l\'image.' });
+    res.status(500).json({ message: 'Erreur upload.' });
   }
 };
 
-/** POST /api/auth/creer-employe (admin) */
 const creerEmploye = async (req, res) => {
   const { nom, prenom, email, password, telephone } = req.body;
   if (!nom || !prenom || !email || !password)
     return res.status(400).json({ message: 'Tous les champs obligatoires sont requis.' });
   if (password.length < 6)
     return res.status(400).json({ message: 'Mot de passe trop court (6 min).' });
-
   try {
     const exists = await db.query('SELECT id FROM users WHERE email = $1', [email.toLowerCase().trim()]);
     if (exists.rows.length) return res.status(409).json({ message: 'Email déjà utilisé.' });
-
     const hash = await bcrypt.hash(password, SALT_ROUNDS);
     const r = await db.query(
       `INSERT INTO users (nom, prenom, email, password_hash, role, telephone)
@@ -149,7 +132,6 @@ const creerEmploye = async (req, res) => {
   }
 };
 
-/** GET /api/auth/employes (admin) */
 const listerEmployes = async (req, res) => {
   try {
     const r = await db.query(
@@ -160,27 +142,22 @@ const listerEmployes = async (req, res) => {
   } catch (err) { res.status(500).json({ message: 'Erreur serveur.' }); }
 };
 
-/** GET /api/auth/employes/:id (admin) — Détail + stats */
 const getEmploye = async (req, res) => {
   const { id } = req.params;
   try {
     const user = await db.query(
-      'SELECT id, nom, prenom, email, photo_url, telephone, actif, created_at FROM users WHERE id = $1 AND role = \'employee\'',
+      "SELECT id, nom, prenom, email, photo_url, telephone, actif, created_at FROM users WHERE id = $1 AND role = 'employee'",
       [id]
     );
     if (!user.rows.length) return res.status(404).json({ message: 'Employé non trouvé.' });
-
-    // Stats globales de l'employé
     const stats = await db.query(`
-      SELECT
-        COALESCE(SUM(cv.kg_achetes), 0) AS total_kg,
-        COALESCE(SUM(cv.montant_recu), 0) AS total_encaisse,
-        COUNT(DISTINCT vj.date_vente) AS nb_jours_travailles,
-        COUNT(cv.id) AS nb_clients
+      SELECT COALESCE(SUM(cv.kg_achetes), 0) AS total_kg,
+             COALESCE(SUM(cv.montant_recu), 0) AS total_encaisse,
+             COUNT(DISTINCT vj.date_vente) AS nb_jours_travailles,
+             COUNT(cv.id) AS nb_clients
       FROM ventes_journees vj
       LEFT JOIN clients_vente cv ON cv.journee_id = vj.id
       WHERE vj.employe_id = $1`, [id]);
-
     res.json({ employe: user.rows[0], stats: stats.rows[0] });
   } catch (err) {
     console.error('getEmploye:', err);
@@ -188,38 +165,24 @@ const getEmploye = async (req, res) => {
   }
 };
 
-/** PATCH /api/auth/employes/:id (admin) — Modifier infos employé */
 const modifierEmploye = async (req, res) => {
   const { id } = req.params;
   const { nom, prenom, telephone, actif, nouveau_mdp } = req.body;
   const client = await db.getClient();
   try {
     await client.query('BEGIN');
-
     await client.query(
-      `UPDATE users SET
-         nom = COALESCE($1, nom),
-         prenom = COALESCE($2, prenom),
-         telephone = COALESCE($3, telephone),
-         actif = COALESCE($4, actif),
-         updated_at = NOW()
+      `UPDATE users SET nom = COALESCE($1, nom), prenom = COALESCE($2, prenom),
+       telephone = COALESCE($3, telephone), actif = COALESCE($4, actif), updated_at = NOW()
        WHERE id = $5 AND role = 'employee'`,
       [nom || null, prenom || null, telephone || null, actif ?? null, id]
     );
-
     if (nouveau_mdp) {
-      if (nouveau_mdp.length < 6) {
-        await client.query('ROLLBACK');
-        return res.status(400).json({ message: 'Nouveau mot de passe trop court.' });
-      }
+      if (nouveau_mdp.length < 6) { await client.query('ROLLBACK'); return res.status(400).json({ message: 'Mot de passe trop court.' }); }
       const hash = await bcrypt.hash(nouveau_mdp, SALT_ROUNDS);
       await client.query('UPDATE users SET password_hash = $1 WHERE id = $2', [hash, id]);
     }
-
-    const updated = await client.query(
-      'SELECT id, nom, prenom, email, photo_url, telephone, actif FROM users WHERE id = $1',
-      [id]
-    );
+    const updated = await client.query('SELECT id, nom, prenom, email, photo_url, telephone, actif FROM users WHERE id = $1', [id]);
     await client.query('COMMIT');
     res.json({ message: 'Employé mis à jour.', employe: updated.rows[0] });
   } catch (err) {
@@ -229,13 +192,12 @@ const modifierEmploye = async (req, res) => {
   } finally { client.release(); }
 };
 
-/** PATCH /api/auth/employes/:id/actif (admin) */
 const toggleActifEmploye = async (req, res) => {
   const { id } = req.params;
   const { actif } = req.body;
   try {
     const r = await db.query(
-      'UPDATE users SET actif = $1 WHERE id = $2 AND role = \'employee\' RETURNING id, nom, prenom, actif',
+      "UPDATE users SET actif = $1 WHERE id = $2 AND role = 'employee' RETURNING id, nom, prenom, actif",
       [actif, id]
     );
     if (!r.rows.length) return res.status(404).json({ message: 'Employé non trouvé.' });
