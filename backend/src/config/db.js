@@ -1,27 +1,23 @@
 const { Pool } = require('pg');
 
+// Nettoyer l'URL : supprimer channel_binding qui n'est pas supporté par node-postgres
+let connectionString = process.env.DATABASE_URL || '';
+connectionString = connectionString.replace('&channel_binding=require', '');
+connectionString = connectionString.replace('?channel_binding=require&', '?');
+connectionString = connectionString.replace('?channel_binding=require', '');
+
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+  connectionString,
+  ssl: { rejectUnauthorized: false },
   max: 10,
   idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 2000,
+  connectionTimeoutMillis: 5000,
 });
 
-pool.on('error', (err) => {
-  console.error('Erreur inattendue sur le pool PostgreSQL:', err);
-});
+pool.on('connect', () => console.log('✅ PostgreSQL connecté'));
+pool.on('error', (err) => console.error('❌ Erreur PostgreSQL:', err.message));
 
-/**
- * Exécute une requête SQL et retourne les lignes.
- * @param {string} text  - Requête SQL avec placeholders $1, $2...
- * @param {Array}  params - Paramètres pour les placeholders
- */
 const query = (text, params) => pool.query(text, params);
-
-/**
- * Obtient un client du pool pour les transactions.
- */
 const getClient = () => pool.connect();
 
 module.exports = { query, getClient, pool };
