@@ -325,12 +325,12 @@ export default function AdminStocks() {
                 <th className="px-4 py-2 text-left text-xs font-semibold text-slate-500">Depuis</th>
               </tr></thead>
               <tbody className="divide-y divide-slate-50">
-                {prix.map(p => (
+                {(prix || []).map(p => (
                   <tr key={p.id} className="hover:bg-slate-50">
                     <td className="px-4 py-2.5 font-medium text-slate-700 capitalize">{p.type_stock}</td>
                     <td className="px-4 py-2.5 text-slate-500">{p.poids_categorie || 'Toutes'}</td>
-                    <td className="px-4 py-2.5 text-right font-bold text-water-700">{parseInt(p.prix_par_kg).toLocaleString('fr')} FCFA</td>
-                    <td className="px-4 py-2.5 text-slate-400 text-xs">{format(new Date(p.date_debut+'T12:00:00'), 'd MMM yyyy', { locale: fr })}</td>
+                    <td className="px-4 py-2.5 text-right font-bold text-water-700">{parseInt(p.prix_par_kg || 0).toLocaleString('fr')} FCFA</td>
+                    <td className="px-4 py-2.5 text-slate-400 text-xs">{p.date_debut ? format(new Date(p.date_debut+'T12:00:00'), 'd MMM yyyy', { locale: fr }) : '—'}</td>
                   </tr>
                 ))}
               </tbody>
