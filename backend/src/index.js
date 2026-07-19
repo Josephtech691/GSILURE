@@ -21,6 +21,16 @@ app.use(express.json());
 // Servir les avatars uploadés
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
+
+// ROUTE DEBUG TEMPORAIRE — à supprimer après
+app.get('/debug', async (req, res) => {
+  try {
+    const r = await db.query('SELECT id, email, role, actif FROM users');
+    res.json({ users: r.rows, db_url: process.env.DATABASE_URL?.slice(0, 30) + '...' });
+  } catch(e) {
+    res.json({ error: e.message });
+  }
+});
 // Routes
 app.use('/api/auth',   require('./routes/auth'));
 app.use('/api/ventes', require('./routes/ventes'));
