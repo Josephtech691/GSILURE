@@ -11,10 +11,25 @@ const app = express();
 const server = http.createServer(app);
 
 const allowedOrigins = [
-  process.env.FRONTEND_URL || 'http://localhost:5173'
-];
+  process.env.FRONTEND_URL,
+  'https://gsilure.vercel.app',
+  'http://localhost:5173',
+].filter(Boolean);
 
-app.use(cors({ origin: (origin, cb) => (!origin || allowedOrigins.includes(origin)) ? cb(null,true) : cb(new Error('CORS')), credentials: true }));
+app.use(cors({
+  origin: function(origin, callback) {
+    // Autoriser les requêtes sans origin (Postman, mobile apps)
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.includes(origin)) return callback(null, true);
+    return callback(new Error('CORS non autorise'));
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+}));
+
+// Gérer les requêtes OPTIONS (preflight)
+app.options('*', cors());
 app.use(express.json());
 
 // Servir les avatars uploadés
