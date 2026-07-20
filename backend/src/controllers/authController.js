@@ -9,7 +9,7 @@ const SALT_ROUNDS = 10;
 const TOKEN_EXPIRY = '8h';
 const AVATARS_DIR = path.join(__dirname, '..', 'uploads', 'avatars');
 
-//if (!fs.existsSync(AVATARS_DIR)) fs.mkdirSync(AVATARS_DIR, { recursive: true });
+if (!fs.existsSync(AVATARS_DIR)) fs.mkdirSync(AVATARS_DIR, { recursive: true });
 
 const login = async (req, res) => {
   const { email, password } = req.body;
