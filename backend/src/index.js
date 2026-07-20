@@ -12,7 +12,7 @@ const server = http.createServer(app);
 
 const allowedOrigins = [
   process.env.FRONTEND_URL || 'http://localhost:5173',
-  'https://poissonnerie.vercel.app',
+  'https://gsilures.vercel.app', 'https://gsilures.onrender.com'
 ];
 
 app.use(cors({ origin: (origin, cb) => (!origin || allowedOrigins.includes(origin)) ? cb(null,true) : cb(new Error('CORS')), credentials: true }));
