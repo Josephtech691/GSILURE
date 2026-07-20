@@ -11,8 +11,7 @@ const app = express();
 const server = http.createServer(app);
 
 const allowedOrigins = [
-  process.env.FRONTEND_URL || 'http://localhost:5173',
-  'https://gsilures.vercel.app', 'https://gsilures.onrender.com'
+  process.env.FRONTEND_URL || 'http://localhost:5173'
 ];
 
 app.use(cors({ origin: (origin, cb) => (!origin || allowedOrigins.includes(origin)) ? cb(null,true) : cb(new Error('CORS')), credentials: true }));
