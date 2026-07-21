@@ -25,15 +25,19 @@ export default function AdminStocks() {
   const charger = async () => {
     try {
       const [bacsRes, depotsRes, prixRes] = await Promise.all([
-        api.get('/stocks/bacs'),
-        api.get('/stocks'),
-        api.get('/stocks/prix'),
+        api.get('/stocks/bacs').catch(() => ({ data: { bacs: [], par_type: [], totaux: {} } })),
+        api.get('/stocks').catch(() => ({ data: [] })),
+        api.get('/stocks/prix').catch(() => ({ data: [] })),
       ]);
-      setBacsData(bacsRes.data);
-      setDepots(depotsRes.data);
-      setPrix(prixRes.data);
-    } catch (err) { console.error(err); }
-    finally { setLoading(false); }
+      setBacsData(bacsRes.data || { bacs: [], par_type: [], totaux: {} });
+      setDepots(Array.isArray(depotsRes.data) ? depotsRes.data : []);
+      setPrix(Array.isArray(prixRes.data) ? prixRes.data : []);
+    } catch (err) {
+      console.error('Erreur chargement stocks:', err);
+      setBacsData({ bacs: [], par_type: [], totaux: {} });
+      setDepots([]);
+      setPrix([]);
+    } finally { setLoading(false); }
   };
 
   useEffect(() => { charger(); }, []);
@@ -285,7 +289,7 @@ export default function AdminStocks() {
 
       {/* ─── PRIX ─── */}
       {activeTab === 'prix' && (
-        <div className="space-y-4">
+        <div className="space-y-4" key="tab-prix">
           <div className="card p-5">
             <h2 className="text-sm font-semibold text-slate-700 mb-1">Modifier le prix d'un type de stock</h2>
             <p className="text-xs text-slate-400 mb-4">⚠️ La modification n'affecte pas les dépôts passés. Seuls les nouveaux dépôts utiliseront le nouveau prix.</p>
@@ -325,12 +329,18 @@ export default function AdminStocks() {
                 <th className="px-4 py-2 text-left text-xs font-semibold text-slate-500">Depuis</th>
               </tr></thead>
               <tbody className="divide-y divide-slate-50">
-                {(prix || []).map(p => (
+                {(!prix || prix.length === 0) ? (
+                  <tr><td colSpan={4} className="text-center py-6 text-slate-400 text-sm">
+                    Aucun prix configuré — exécutez le script SQL d'initialisation dans Neon.
+                  </td></tr>
+                ) : prix.map(p => (
                   <tr key={p.id} className="hover:bg-slate-50">
-                    <td className="px-4 py-2.5 font-medium text-slate-700 capitalize">{p.type_stock}</td>
-                    <td className="px-4 py-2.5 text-slate-500">{p.poids_categorie || 'Toutes'}</td>
-                    <td className="px-4 py-2.5 text-right font-bold text-water-700">{parseInt(p.prix_par_kg || 0).toLocaleString('fr')} FCFA</td>
-                    <td className="px-4 py-2.5 text-slate-400 text-xs">{p.date_debut ? format(new Date(p.date_debut+'T12:00:00'), 'd MMM yyyy', { locale: fr }) : '—'}</td>
+                    <td className="px-4 py-2.5 font-medium text-slate-700 capitalize">{p?.type_stock || '—'}</td>
+                    <td className="px-4 py-2.5 text-slate-500">{p?.poids_categorie || 'Toutes'}</td>
+                    <td className="px-4 py-2.5 text-right font-bold text-water-700">{parseInt(p?.prix_par_kg || 0).toLocaleString('fr')} FCFA</td>
+                    <td className="px-4 py-2.5 text-slate-400 text-xs">
+                      {p?.date_debut ? (() => { try { return format(new Date(p.date_debut+'T12:00:00'), 'd MMM yyyy', { locale: fr }); } catch { return '—'; } })() : '—'}
+                    </td>
                   </tr>
                 ))}
               </tbody>
