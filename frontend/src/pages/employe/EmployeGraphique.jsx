@@ -123,7 +123,7 @@ export default function EmployeGraphique() {
             {moisOptions().map(o => <option key={o.val} value={o.val}>{o.label}</option>)}
           </select>
 
-          <select value={annee} onChange={e => setAnnee(Number(e.target.value))} className="input w-auto text-sm">
+          <select value={annee} onChange={e => setAnnee(e.target.value)} className="input w-auto text-sm">
            {[0,1,2].map(i => {
            const y = new Date().getFullYear() - i;
             return <option key={y} value={y}>{y}</option>;
