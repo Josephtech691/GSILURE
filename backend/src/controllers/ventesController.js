@@ -637,15 +637,19 @@ const revenusVentes = async (req, res) => {
   }
 };
 
-/** GET /api/ventes/journalier?mois=YYYY-MM */
+/** GET /api/ventes/journalier?mois=YYYY-MM&annee=YYYY */
 const ventesJournalier = async (req, res) => {
   const moisFiltre = req.query.mois || new Date().toISOString().slice(0, 7);
+  const anneeFiltre = req.query.annee || new Date().getFullYear();
+
   try {
-    const r = await db.query(`
-      SELECT vj.date_vente::TEXT AS date,
-             COUNT(cv.id) AS nb_clients,
-             COALESCE(SUM(cv.kg_achetes), 0) AS kg_total,
-             COALESCE(SUM(cv.montant_recu), 0) AS montant_encaisse
+    // Ventes journalières du mois
+    const ventes = await db.query(`
+      SELECT
+        vj.date_vente::TEXT AS date,
+        COUNT(cv.id) AS nb_clients,
+        COALESCE(SUM(cv.kg_achetes), 0) AS kg_total,
+        COALESCE(SUM(cv.montant_recu), 0) AS montant_encaisse
       FROM ventes_journees vj
       LEFT JOIN clients_vente cv ON cv.journee_id = vj.id
       WHERE TO_CHAR(vj.date_vente, 'YYYY-MM') = $1
@@ -653,41 +657,61 @@ const ventesJournalier = async (req, res) => {
       ORDER BY vj.date_vente DESC
     `, [moisFiltre]);
 
-    //nouveau
-    const anneeFiltre = req.query.annee || annee;
+    // Total annuel
+    const totalAnneeQ = await db.query(`
+      SELECT COALESCE(SUM(cv.montant_recu), 0) AS total
+      FROM ventes_journees vj
+      LEFT JOIN clients_vente cv ON cv.journee_id = vj.id
+      WHERE EXTRACT(YEAR FROM vj.date_vente) = $1
+    `, [anneeFiltre]);
 
-const totalAnneeQ = await db.query(`
-  SELECT COALESCE(SUM(cv.montant_recu), 0) AS total
-  FROM ventes_journees vj LEFT JOIN clients_vente cv ON cv.journee_id = vj.id
-  WHERE vj.employe_id = $1 AND EXTRACT(YEAR FROM vj.date_vente) = $2
-`, [empId, anneeFiltre]);
+    // Cumul ventes
+    const cumulVentes = await db.query(`
+      SELECT COALESCE(SUM(cv.montant_recu), 0) AS total
+      FROM ventes_journees vj
+      LEFT JOIN clients_vente cv ON cv.journee_id = vj.id
+    `);
 
-const cumulVentes = await db.query(`
-  SELECT COALESCE(SUM(cv.montant_recu), 0) AS total
-  FROM ventes_journees vj LEFT JOIN clients_vente cv ON cv.journee_id = vj.id
-  WHERE vj.employe_id = $1
-`, [empId]);
+    // Mouvements caisse approuvés
+    const cumulMouvements = await db.query(`
+      SELECT
+        type,
+        COALESCE(SUM(montant), 0) AS total
+      FROM mouvements_caisse
+      WHERE statut = 'approuvee'
+      GROUP BY type
+    `);
 
-const cumulMouvements = await db.query(
-  `SELECT type, COALESCE(SUM(montant), 0) AS total FROM mouvements_caisse
-   WHERE employe_id = $1 AND statut = 'approuvee' GROUP BY type`,
-  [empId]
-);
-const cumulEncaissements = await db.query(
-  `SELECT COALESCE(SUM(montant), 0) AS total FROM encaissements
-   WHERE employe_id = $1 AND statut = 'approuvee'`,
-  [empId]
-);
-const cumulAjouts = parseFloat(cumulMouvements.rows.find(r => r.type === 'ajout')?.total || 0);
-const cumulRetraits = parseFloat(cumulMouvements.rows.find(r => r.type === 'retrait')?.total || 0);
-    res.json({total_annee: parseFloat(totalAnneeQ.rows[0].total),
-annee: anneeFiltre,
-caisse_cumulee: {
-  ventes: parseFloat(cumulVentes.rows[0].total),
-  ajouts: cumulAjouts,
-  retraits: cumulRetraits,
-  encaissements: parseFloat(cumulEncaissements.rows[0].total),
-},});
+    // Encaissements approuvés
+    const cumulEncaissements = await db.query(`
+      SELECT COALESCE(SUM(montant), 0) AS total
+      FROM encaissements
+      WHERE statut = 'approuvee'
+    `);
+
+    const cumulAjouts = parseFloat(
+      cumulMouvements.rows.find(r => r.type === 'ajout')?.total || 0
+    );
+
+    const cumulRetraits = parseFloat(
+      cumulMouvements.rows.find(r => r.type === 'retrait')?.total || 0
+    );
+
+    res.json({
+      ventes: ventes.rows,
+
+      total_annee: parseFloat(totalAnneeQ.rows[0].total),
+
+      annee: anneeFiltre,
+
+      caisse_cumulee: {
+        ventes: parseFloat(cumulVentes.rows[0].total),
+        ajouts: cumulAjouts,
+        retraits: cumulRetraits,
+        encaissements: parseFloat(cumulEncaissements.rows[0].total)
+      }
+    });
+
   } catch (err) {
     console.error('ventesJournalier:', err);
     res.status(500).json({ message: 'Erreur serveur.' });
