@@ -201,3 +201,9 @@ La vérification de verrouillage se fait maintenant sur la **date** (today vs pa
 | `GET` | `/api/ventes/dashboard` | Admin |
 | `GET` | `/api/ventes/demandes` | Admin |
 | `PATCH` | `/api/ventes/demandes/:id` | Admin |
+
+
+
+
+
+

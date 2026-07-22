@@ -31,6 +31,11 @@ export default function AdminDashboard() {
   const [filtreEmploye, setFiltreEmploye] = useState('');
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [stockTypes, setStockTypes] = useState([]);
+  const [filtreStock, setFiltreStock] = useState('');
+  const [annee, setAnnee] = useState(new Date().getFullYear());
+  const [revenus, setRevenus] = useState(null);
+  const [ventesJour, setVentesJour] = useState([]);
 
   useEffect(() => {
     api.get('/auth/employes').then(r => setEmployes(r.data)).catch(console.error);
@@ -45,6 +50,27 @@ export default function AdminDashboard() {
       .catch(console.error)
       .finally(() => setLoading(false));
   }, [date, mois, filtreEmploye]);
+
+  useEffect(() => {
+  api.get('/stocks/prix').then(r => {
+    const types = [...new Set(r.data.map(p => p.type_stock))];
+    setStockTypes(types);
+  }).catch(console.error);
+}, []);
+
+useEffect(() => {
+  const params = new URLSearchParams({ mois, annee });
+  if (filtreStock) params.append('type_stock', filtreStock);
+  api.get(`/ventes/revenus?${params}`)
+    .then(r => setRevenus(r.data))
+    .catch(console.error);
+}, [mois, filtreStock, annee]);
+
+useEffect(() => {
+  api.get(`/ventes/journalier?mois=${mois}`)
+    .then(r => setVentesJour(r.data))
+    .catch(console.error);
+}, [mois]);
 
   // Options mois (12 derniers)
   const moisOptions = [];
@@ -131,6 +157,55 @@ export default function AdminDashboard() {
           </div>
         )}
       </div>
+
+      {/* Revenus */}
+<div>
+  <div className="flex items-center gap-3 mb-3 flex-wrap">
+    <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide flex-1">Revenus des ventes</p>
+    <select value={filtreStock} onChange={e => setFiltreStock(e.target.value)} className="input w-auto text-xs py-1">
+      <option value="">Tous les stocks</option>
+      {stockTypes.map(t => <option key={t} value={t}>{t}</option>)}
+    </select>
+    <select value={annee} onChange={e => setAnnee(e.target.value)} className="input w-auto text-xs py-1">
+      {[0,1,2].map(i => {
+        const y = new Date().getFullYear() - i;
+        return <option key={y} value={y}>{y}</option>;
+      })}
+    </select>
+  </div>
+  <div className="grid grid-cols-3 gap-3">
+    <StatCard icon="📆" label={`Argent du mois (${mois})`} value={`${parseInt(revenus?.mois||0).toLocaleString('fr')} F`} color="water" />
+    <StatCard icon="📦" label={filtreStock ? `Argent — ${filtreStock}` : 'Argent — sélectionner un stock'} value={`${parseInt(revenus?.stock||0).toLocaleString('fr')} F`} color="ocean" />
+    <StatCard icon="🗓️" label={`Argent de l'année ${annee}`} value={`${parseInt(revenus?.annee||0).toLocaleString('fr')} F`} color="purple" />
+  </div>
+</div>
+
+{/* Tableau des ventes journalières */}
+<div className="card overflow-hidden">
+  <div className="px-5 py-3 border-b border-slate-100">
+    <h2 className="text-sm font-semibold text-slate-600">📊 Ventes par jour — {mois}</h2>
+  </div>
+  <div className="overflow-x-auto">
+    <table className="w-full text-sm">
+      <thead className="bg-slate-50"><tr>
+        <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-500">Date</th>
+        <th className="px-4 py-2.5 text-right text-xs font-semibold text-slate-500">Clients</th>
+        <th className="px-4 py-2.5 text-right text-xs font-semibold text-slate-500">Kg vendus</th>
+        <th className="px-4 py-2.5 text-right text-xs font-semibold text-slate-500">Encaissé</th>
+      </tr></thead>
+      <tbody className="divide-y divide-slate-50">
+        {ventesJour.map(v => (
+          <tr key={v.date} className="hover:bg-slate-50 cursor-pointer" onClick={() => setDate(v.date)}>
+            <td className="px-4 py-3 font-medium text-slate-700">{format(new Date(v.date+'T12:00:00'), 'EEE d MMM', { locale: fr })}</td>
+            <td className="px-4 py-3 text-right">{v.nb_clients}</td>
+            <td className="px-4 py-3 text-right">{parseFloat(v.kg_total).toFixed(1)} kg</td>
+            <td className="px-4 py-3 text-right text-water-700 font-medium">{parseInt(v.montant_encaisse).toLocaleString('fr')} F</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  </div>
+</div>
 
       {/* Stats par employé */}
       <div className="card overflow-hidden">

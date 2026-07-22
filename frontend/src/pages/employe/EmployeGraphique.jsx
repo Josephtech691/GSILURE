@@ -38,6 +38,9 @@ export default function EmployeGraphique() {
   const [encForm, setEncForm] = useState({ montant: '', commentaire: '' });
   const [encLoading, setEncLoading] = useState(false);
 
+  //nouveau state
+  const [annee, setAnnee] = useState(() => new Date().getFullYear());
+
   const charger = async () => {
     setLoading(true);
     try {
@@ -47,8 +50,11 @@ export default function EmployeGraphique() {
     finally { setLoading(false); }
   };
 
-  useEffect(() => { charger(); }, [mois]);
+  useEffect(() => { charger(); }, [mois],[annee]);
 
+  //modifier le fetch
+  const res = await api.get(`/ventes/graphique?mois=${mois}&annee=${annee}`);
+  //
   const soumettreMouvement = async (e) => {
     e.preventDefault();
     if (!mvForm.montant || !mvForm.commentaire.trim()) return;
@@ -115,6 +121,13 @@ export default function EmployeGraphique() {
           <select value={mois} onChange={e => setMois(e.target.value)} className="input w-auto text-sm">
             {moisOptions().map(o => <option key={o.val} value={o.val}>{o.label}</option>)}
           </select>
+
+          <select value={annee} onChange={e => setAnnee(e.target.value)} className="input w-auto text-sm">
+           {[0,1,2].map(i => {
+           const y = new Date().getFullYear() - i;
+            return <option key={y} value={y}>{y}</option>;
+            })}
+            </select>
           <div className="flex rounded-lg border border-slate-200 overflow-hidden">
             {['bar','line'].map(t => (
               <button key={t} onClick={() => setTypeChart(t)}
@@ -189,29 +202,63 @@ export default function EmployeGraphique() {
               ))}
             </div>
 
-            {/* Total en caisse — nouvelle donnée */}
-<div className="mt-4 pt-4 border-t border-slate-100">
-  <div className="bg-ocean-50 border border-ocean-200 rounded-xl p-4 flex items-center justify-between">
-    <div>
-      <p className="text-xs font-semibold text-ocean-600 uppercase tracking-wide mb-1">
-        💼 Total en caisse
-      </p>
-      <p className="text-2xl font-bold text-ocean-700">
-        {(
-          parseInt(t.montant_total||0) +
-          parseInt(t.ajouts||0) -
-          parseInt(t.retraits||0) -
-          parseInt(t.encaissements||0)
-        ).toLocaleString('fr')} FCFA
-      </p>
-    </div>
-    <div className="text-right text-xs text-ocean-500 space-y-0.5">
+            //nouveau
+            <div className="grid grid-cols-2 gap-3">
+  <div className="bg-slate-50 rounded-lg p-3">
+    <p className="text-xs text-slate-400 mb-0.5">Vendu en {moisOptions().find(o=>o.val===mois)?.label}</p>
+    <p className="font-bold text-water-700">{parseInt(t.montant_total||0).toLocaleString('fr')} F</p>
+  </div>
+  <div className="bg-slate-50 rounded-lg p-3">
+    <p className="text-xs text-slate-400 mb-0.5">Vendu en {annee}</p>
+    <p className="font-bold text-purple-700">{parseInt(data?.total_annee||0).toLocaleString('fr')} F</p>
+  </div>
+</div>
+
+          {/* Caisse — mouvement du mois + solde physique cumulé */}
+<div className="mt-4 pt-4 border-t border-slate-100 grid grid-cols-1 sm:grid-cols-2 gap-3">
+
+  {/* 1. Entré en caisse CE MOIS (selon mois sélectionné) */}
+  <div className="bg-water-50 rounded-xl p-4">
+    <p className="text-xs font-semibold text-water-700 uppercase tracking-wide mb-1">
+      📅 Entré en caisse — {moisOptions().find(o=>o.val===mois)?.label}
+    </p>
+    <p className="text-2xl font-bold text-water-700">
+      {(
+        parseInt(t.montant_total||0) +
+        parseInt(t.ajouts||0) -
+        parseInt(t.retraits||0) -
+        parseInt(t.encaissements||0)
+      ).toLocaleString('fr')} FCFA
+    </p>
+    <div className="text-xs text-slate-500 mt-2 space-y-0.5">
       <p>Ventes : +{parseInt(t.montant_total||0).toLocaleString('fr')} F</p>
       {parseInt(t.ajouts||0) > 0 && <p>Ajouts : +{parseInt(t.ajouts||0).toLocaleString('fr')} F</p>}
       {parseInt(t.retraits||0) > 0 && <p>Retraits : -{parseInt(t.retraits||0).toLocaleString('fr')} F</p>}
       {parseInt(t.encaissements||0) > 0 && <p>Versé patron : -{parseInt(t.encaissements||0).toLocaleString('fr')} F</p>}
     </div>
   </div>
+
+  {/* 2. Total en caisse PHYSIQUE (cumulé depuis le début) */}
+  <div className="bg-ocean-50 rounded-xl p-4">
+    <p className="text-xs font-semibold text-ocean-700 uppercase tracking-wide mb-1">
+      💼 Total en caisse (cumulé)
+    </p>
+    <p className="text-2xl font-bold text-ocean-700">
+      {(
+        parseInt(cc.ventes||0) +
+        parseInt(cc.ajouts||0) -
+        parseInt(cc.retraits||0) -
+        parseInt(cc.encaissements||0)
+      ).toLocaleString('fr')} FCFA
+    </p>
+    <div className="text-xs text-slate-500 mt-2 space-y-0.5">
+      <p>Ventes totales : +{parseInt(cc.ventes||0).toLocaleString('fr')} F</p>
+      {parseInt(cc.ajouts||0) > 0 && <p>Ajouts : +{parseInt(cc.ajouts||0).toLocaleString('fr')} F</p>}
+      {parseInt(cc.retraits||0) > 0 && <p>Retraits : -{parseInt(cc.retraits||0).toLocaleString('fr')} F</p>}
+      {parseInt(cc.encaissements||0) > 0 && <p>Versé patron : -{parseInt(cc.encaissements||0).toLocaleString('fr')} F</p>}
+    </div>
+  </div>
+
 </div>
 
             {/* Demandes en attente */}
