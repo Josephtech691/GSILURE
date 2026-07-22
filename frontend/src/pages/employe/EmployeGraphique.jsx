@@ -44,17 +44,17 @@ export default function EmployeGraphique() {
   const charger = async () => {
     setLoading(true);
     try {
-      const res = await api.get(`/ventes/graphique?mois=${mois}`);
+      //modifier le fetch
+         const res = await api.get(`/ventes/graphique?mois=${mois}&annee=${annee}`);
+      //
       setData(res.data);
     } catch (err) { console.error(err); }
     finally { setLoading(false); }
   };
 
-  useEffect(() => { charger(); }, [mois],[annee]);
+  useEffect(() => { charger(); }, [mois,annee]);
 
-  //modifier le fetch
-  const res = await api.get(`/ventes/graphique?mois=${mois}&annee=${annee}`);
-  //
+  
   const soumettreMouvement = async (e) => {
     e.preventDefault();
     if (!mvForm.montant || !mvForm.commentaire.trim()) return;
@@ -107,9 +107,12 @@ export default function EmployeGraphique() {
 
   const Chart = typeChart === 'bar' ? BarChart : LineChart;
 
-  //nouveau
-  
-
+  const cc = data?.caisse_cumulee || {
+  ventes: 0,
+  ajouts: 0,
+  retraits: 0,
+  encaissements: 0,
+};
   return (
     <div className="max-w-2xl mx-auto space-y-5">
       <ToastDisplay toast={toast} />
@@ -125,7 +128,7 @@ export default function EmployeGraphique() {
             {moisOptions().map(o => <option key={o.val} value={o.val}>{o.label}</option>)}
           </select>
 
-          <select value={annee} onChange={e => setAnnee(e.target.value)} className="input w-auto text-sm">
+          <select value={annee} onChange={e => setAnnee(Number(e.target.value))} className="input w-auto text-sm">
            {[0,1,2].map(i => {
            const y = new Date().getFullYear() - i;
             return <option key={y} value={y}>{y}</option>;
@@ -205,7 +208,7 @@ export default function EmployeGraphique() {
               ))}
             </div>
 
-            //nouveau
+           { /*nouveau*/}
             <div className="grid grid-cols-2 gap-3">
   <div className="bg-slate-50 rounded-lg p-3">
     <p className="text-xs text-slate-400 mb-0.5">Vendu en {moisOptions().find(o=>o.val===mois)?.label}</p>
