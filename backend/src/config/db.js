@@ -13,14 +13,14 @@ connectionString = connectionString.replace('?channel_binding=require', '');
   max: 10,
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 10000,
-});*/
+});//\*/
 const pool = new Pool({
   connectionString,
   ssl: { rejectUnauthorized: false },
   max: 10,
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 5000,
-});
+});//*/
 
 pool.on('connect', () => console.log('✅ PostgreSQL connecté'));
 pool.on('error', (err) => console.error('❌ Erreur PostgreSQL:', err.message));
