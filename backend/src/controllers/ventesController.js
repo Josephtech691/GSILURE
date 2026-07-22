@@ -312,6 +312,29 @@ const graphiqueEmploye = async (req, res) => {
       [empId, moisFiltre]
     );
 
+    // Totaux CUMULÉS (toute la durée) — pour la caisse réelle de l'employé
+const cumulVentes = await db.query(`
+  SELECT COALESCE(SUM(cv.montant_recu), 0) AS total
+  FROM ventes_journees vj
+  LEFT JOIN clients_vente cv ON cv.journee_id = vj.id
+  WHERE vj.employe_id = $1
+`, [empId]);
+
+const cumulMouvements = await db.query(
+  `SELECT type, COALESCE(SUM(montant), 0) AS total FROM mouvements_caisse
+   WHERE employe_id = $1 AND statut = 'approuvee' GROUP BY type`,
+  [empId]
+);
+
+const cumulEncaissements = await db.query(
+  `SELECT COALESCE(SUM(montant), 0) AS total FROM encaissements
+   WHERE employe_id = $1 AND statut = 'approuvee'`,
+  [empId]
+);
+
+const cumulAjouts = parseFloat(cumulMouvements.rows.find(r => r.type === 'ajout')?.total || 0);
+const cumulRetraits = parseFloat(cumulMouvements.rows.find(r => r.type === 'retrait')?.total || 0);
+
     // En attente
     const enAttente = await db.query(
       `SELECT type, SUM(montant) AS total FROM mouvements_caisse WHERE employe_id = $1 AND mois = $2 AND statut = 'en_attente' GROUP BY type`,
@@ -345,6 +368,12 @@ const graphiqueEmploye = async (req, res) => {
         par_type: stock.rows,
         total_kg_achete: stock.rows.reduce((s, r) => s + parseFloat(r.total_kg || 0), 0),
         total_kg_vendu: parseFloat(totalVendu.rows[0].total),
+        caisse_cumulee: {
+  ventes: parseFloat(cumulVentes.rows[0].total),
+  ajouts: cumulAjouts,
+  retraits: cumulRetraits,
+  encaissements: parseFloat(cumulEncaissements.rows[0].total),
+},
       },
       mois: moisFiltre,
     });

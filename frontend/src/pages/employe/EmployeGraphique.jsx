@@ -107,12 +107,7 @@ export default function EmployeGraphique() {
 
   const Chart = typeChart === 'bar' ? BarChart : LineChart;
 
-  const cc = data?.caisse_cumulee || {
-  ventes: 0,
-  ajouts: 0,
-  retraits: 0,
-  encaissements: 0,
-};
+  const cc = data?.caisse_cumulee || {};
   return (
     <div className="max-w-2xl mx-auto space-y-5">
       <ToastDisplay toast={toast} />
