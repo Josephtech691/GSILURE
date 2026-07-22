@@ -10,14 +10,15 @@ import { useToast, ToastDisplay } from '../../components/ui/Toast';
 const PRIX_KG = 2500;
 const todayStr = () => new Date().toISOString().split('T')[0];
 
-function CarteClient({ client, readOnly, onModifier, onSupprimer, onDemanderAnnulation }) {
+function CarteClient({ client, readOnly, onModifier, onSupprimer, onDemanderAnnulation, stockTypes }) {
   const [edition, setEdition] = useState(false);
   const [form, setForm] = useState({
-    kg_achetes: client.kg_achetes,
-    montant_recu: client.montant_recu,
-    heure_approx: client.heure_approx?.slice(0,5) || '',
-    commentaire: client.commentaire || '',
-  });
+  kg_achetes: client.kg_achetes,
+  montant_recu: client.montant_recu,
+  heure_approx: client.heure_approx?.slice(0,5) || '',
+  commentaire: client.commentaire || '',
+  type_stock: client.type_stock || '',
+});
   const [showAnnulation, setShowAnnulation] = useState(false);
   const [motifAnnulation, setMotifAnnulation] = useState('');
   const [loading, setLoading] = useState(false);
@@ -54,6 +55,13 @@ function CarteClient({ client, readOnly, onModifier, onSupprimer, onDemanderAnnu
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div><label className="block text-xs font-medium text-slate-500 mb-1">Kg</label>
+        <div>
+  <label className="block text-xs font-medium text-slate-500 mb-1">Type de stock</label>
+  <select value={form.type_stock} onChange={e => setForm({...form, type_stock: e.target.value})} className="input">
+    <option value="">—</option>
+    {stockTypes.map(t => <option key={t} value={t}>{t}</option>)}
+  </select>
+</div>
           <input type="number" step="0.1" min="0.1" value={form.kg_achetes} onChange={e => setForm({...form, kg_achetes: e.target.value})} className="input" /></div>
         <div><label className="block text-xs font-medium text-slate-500 mb-1">Montant reçu (FCFA)</label>
           <input type="number" min="0" value={form.montant_recu} onChange={e => setForm({...form, montant_recu: e.target.value})} className="input" /></div>
@@ -77,6 +85,9 @@ function CarteClient({ client, readOnly, onModifier, onSupprimer, onDemanderAnnu
           <div>
             <p className="font-semibold text-slate-700 text-sm">Client {client.numero_client}</p>
             <p className="text-xs text-slate-400">{client.heure_approx?.slice(0,5)}</p>
+            {client.type_stock && (
+  <p className="text-xs text-slate-400">{client.type_stock}{client.poids_categorie && ` · ${client.poids_categorie}`}</p>
+)}
             {client.commentaire && <p className="text-xs text-slate-500 italic mt-0.5">{client.commentaire}</p>}
           </div>
         </div>
@@ -146,7 +157,13 @@ export default function EmployeJournee() {
   const [nouveauClient, setNouveauClient] = useState(null);
   const [showDemandeForm, setShowDemandeForm] = useState(false);
   const [demandeMotif, setDemandeMotif] = useState('');
-
+  const [stockTypes, setStockTypes] = useState([]);
+  useEffect(() => {
+  api.get('/stocks/prix').then(r => {
+    const types = [...new Set(r.data.map(p => p.type_stock))];
+    setStockTypes(types);
+  }).catch(console.error);
+}, []);
   const isToday = date === todayStr();
 
   const charger = useCallback(async () => {
@@ -288,9 +305,9 @@ export default function EmployeJournee() {
           {/* Liste clients */}
           <div className="space-y-3">
             {clients.map(c => (
-              <CarteClient key={c.id} client={c} readOnly={!canEdit}
-                onModifier={modifierClient} onSupprimer={supprimerClient} onDemanderAnnulation={demanderAnnulation} />
-            ))}
+  <CarteClient key={c.id} client={c} readOnly={!canEdit} stockTypes={stockTypes}
+    onModifier={modifierClient} onSupprimer={supprimerClient} onDemanderAnnulation={demanderAnnulation} />
+))}
             {clients.length === 0 && !nouveauClient && (
               <div className="card p-8 text-center text-slate-400">
                 <p className="text-3xl mb-2">🐟</p>
@@ -304,11 +321,22 @@ export default function EmployeJournee() {
             <div className="card p-4 border-l-4 border-water-500">
               <div className="flex justify-between items-center mb-3">
                 <span className="font-semibold text-sm text-slate-700">Client {clients.length + 1} — Nouveau</span>
-                <button onClick={() => setNouveauClient(null)} className="text-xs text-slate-400">Annuler</button>
+                <button onClick={() => setNouveauClient({ kg_achetes:'', montant_recu:'', heure_approx: new Date().toTimeString().slice(0,5), commentaire:'', type_stock: '' })}
+  className="btn-primary w-full py-3 justify-center text-base">
+  + Nouveau Client
+</button>
               </div>
               <form onSubmit={ajouterClient} className="space-y-3">
                 <div className="grid grid-cols-2 gap-3">
                   <div><label className="block text-xs font-medium text-slate-500 mb-1">Kg achetés *</label>
+                  <div>
+  <label className="block text-xs font-medium text-slate-500 mb-1">Type de stock *</label>
+  <select required value={nouveauClient.type_stock}
+    onChange={e => setNouveauClient({...nouveauClient, type_stock: e.target.value})} className="input">
+    <option value="">Sélectionner…</option>
+    {stockTypes.map(t => <option key={t} value={t}>{t}</option>)}
+  </select>
+</div>
                     <input type="number" step="0.1" min="0.1" required autoFocus value={nouveauClient.kg_achetes}
                       onChange={e => setNouveauClient({...nouveauClient, kg_achetes: e.target.value})} className="input" /></div>
                   <div><label className="block text-xs font-medium text-slate-500 mb-1">Montant reçu (FCFA) *</label>

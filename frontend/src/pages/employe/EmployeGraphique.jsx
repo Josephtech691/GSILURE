@@ -98,7 +98,7 @@ export default function EmployeGraphique() {
     kg_vendus: parseFloat(d.kg_vendus),
     montant_encaisse: parseFloat(d.montant_encaisse),
   }));
-
+  const cc = data?.caisse_cumulee || {};
   const t = data?.totaux_mois || {};
   const stockGlobal = data?.stock_global || {};
   const totalKgAchete = stockGlobal.total_kg_achete || 0;
@@ -107,7 +107,7 @@ export default function EmployeGraphique() {
 
   const Chart = typeChart === 'bar' ? BarChart : LineChart;
 
-  const cc = data?.caisse_cumulee || {};
+  
   return (
     <div className="max-w-2xl mx-auto space-y-5">
       <ToastDisplay toast={toast} />
@@ -274,6 +274,7 @@ export default function EmployeGraphique() {
               </div>
             )}
           </div>
+          
 
           {/* Stock global (lecture seule pour l'employé) */}
           <div className="card p-5">

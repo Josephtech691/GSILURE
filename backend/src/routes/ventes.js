@@ -16,8 +16,8 @@ router.get('/dashboard', authenticate, adminOnly, ctrl.dashboard);
 router.get('/demandes', authenticate, adminOnly, ctrl.listerDemandes);
 router.patch('/demandes/:id', authenticate, adminOnly, ctrl.traiterDemande);
 router.post('/demandes-modification', authenticate, ctrl.demanderModification);
-//nouveau
-router.get('/revenus', authenticate, ctrl.revenusVentes);
-router.get('/journalier', authenticate, ctrl.ventesJournalier);
+// Il faut ajouter dans ventes.js :
+router.get('/revenus', authenticate, adminOnly, ctrl.revenusVentes);
+router.get('/journalier', authenticate, adminOnly, ctrl.ventesJournalier);
 
 module.exports = router;

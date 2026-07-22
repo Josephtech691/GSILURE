@@ -85,9 +85,32 @@ const ajouterClient = async (req, res) => {
 
   const client = await db.getClient();
   try {
-    await client.query('BEGIN');
-    // ... (le reste de tes vérifications journée/autorisation reste identique) ...
+   await client.query('BEGIN');
 
+const journee = await client.query('SELECT * FROM ventes_journees WHERE id = $1', [journeeId]);
+if (!journee.rows.length) {
+  await client.query('ROLLBACK');
+  return res.status(404).json({ message: 'Journée non trouvée.' });
+}
+const j = journee.rows[0];
+const dateVenteStr = j.date_vente instanceof Date
+  ? j.date_vente.toISOString().split('T')[0]
+  : String(j.date_vente).split('T')[0];
+const isToday = dateVenteStr === today();
+
+if (req.user.role === 'employee') {
+  if (j.employe_id !== req.user.id) {
+    await client.query('ROLLBACK');
+    return res.status(403).json({ message: 'Accès refusé.' });
+  }
+  if (!isToday) {
+    const autorisee = await estModificationAutorisee(journeeId);
+    if (!autorisee) {
+      await client.query('ROLLBACK');
+      return res.status(403).json({ message: 'Journée passée. Demandez une autorisation de modification.' });
+    }
+  }
+}
     const maxNum = await client.query(
       'SELECT COALESCE(MAX(numero_client), 0) AS max FROM clients_vente WHERE journee_id = $1',
       [journeeId]
@@ -111,9 +134,10 @@ const ajouterClient = async (req, res) => {
 };
 
 /** PUT /api/ventes/clients/:clientId */
+/** PUT /api/ventes/clients/:clientId */
 const modifierClient = async (req, res) => {
   const { clientId } = req.params;
-  const { kg_achetes, montant_recu, heure_approx, commentaire } = req.body;
+  const { kg_achetes, montant_recu, heure_approx, commentaire, type_stock, poids_categorie } = req.body;
 
   try {
     const existing = await db.query(
@@ -138,9 +162,12 @@ const modifierClient = async (req, res) => {
     const r = await db.query(
       `UPDATE clients_vente
        SET kg_achetes = COALESCE($1, kg_achetes), montant_recu = COALESCE($2, montant_recu),
-           heure_approx = COALESCE($3, heure_approx), commentaire = $4, updated_at = NOW()
-       WHERE id = $5 RETURNING *`,
-      [kg_achetes ?? null, montant_recu ?? null, heure_approx ?? null, commentaire ?? row.commentaire, clientId]
+           heure_approx = COALESCE($3, heure_approx), commentaire = $4,
+           type_stock = COALESCE($5, type_stock), poids_categorie = COALESCE($6, poids_categorie),
+           updated_at = NOW()
+       WHERE id = $7 RETURNING *`,
+      [kg_achetes ?? null, montant_recu ?? null, heure_approx ?? null, commentaire ?? row.commentaire,
+       type_stock ?? null, poids_categorie ?? null, clientId]
     );
     res.json({ client: r.rows[0] });
   } catch (err) {
@@ -279,12 +306,13 @@ const creerEncaissement = async (req, res) => {
 
 /** GET /api/ventes/graphique-employe?mois=YYYY-MM */
 const graphiqueEmploye = async (req, res) => {
-  const { mois } = req.query;
+  const { mois, annee: anneeQuery } = req.query;
   const empId = req.user.role === 'admin' ? req.query.employe_id : req.user.id;
   if (!empId) return res.status(400).json({ message: 'employe_id requis.' });
 
   const moisFiltre = mois || new Date().toISOString().slice(0, 7);
-  const [annee, moisNum] = moisFiltre.split('-');
+  const [anneeMois, moisNum] = moisFiltre.split('-');
+  const anneeFiltre = anneeQuery || anneeMois;
 
   try {
     // Ventes du mois
@@ -298,7 +326,7 @@ const graphiqueEmploye = async (req, res) => {
       WHERE vj.employe_id = $1
         AND EXTRACT(YEAR FROM vj.date_vente) = $2
         AND EXTRACT(MONTH FROM vj.date_vente) = $3
-      GROUP BY vj.date_vente ORDER BY vj.date_vente`, [empId, annee, moisNum]);
+      GROUP BY vj.date_vente ORDER BY vj.date_vente`, [empId, anneeFiltre, moisNum]);
 
     // Mouvements caisse approuvés
     const mouvements = await db.query(
@@ -357,26 +385,33 @@ const cumulRetraits = parseFloat(cumulMouvements.rows.find(r => r.type === 'retr
     const ajouts = mouvements.rows.filter(m => m.type === 'ajout').reduce((s, m) => s + parseFloat(m.montant), 0);
     const retraits = mouvements.rows.filter(m => m.type === 'retrait').reduce((s, m) => s + parseFloat(m.montant), 0);
     const totalEnc = encaissements.rows.reduce((s, e) => s + parseFloat(e.montant), 0);
+    const totalAnneeQ = await db.query(`
+  SELECT COALESCE(SUM(cv.montant_recu), 0) AS total
+  FROM ventes_journees vj LEFT JOIN clients_vente cv ON cv.journee_id = vj.id
+  WHERE vj.employe_id = $1 AND EXTRACT(YEAR FROM vj.date_vente) = $2
+`, [empId, anneeFiltre]);
 
-    res.json({
-      donnees: ventes.rows,
-      totaux_mois: { ...totaux, ajouts, retraits, encaissements: totalEnc },
-      mouvements: mouvements.rows,
-      encaissements: encaissements.rows,
-      en_attente: enAttente.rows,
-      stock_global: {
-        par_type: stock.rows,
-        total_kg_achete: stock.rows.reduce((s, r) => s + parseFloat(r.total_kg || 0), 0),
-        total_kg_vendu: parseFloat(totalVendu.rows[0].total),
-        caisse_cumulee: {
-  ventes: parseFloat(cumulVentes.rows[0].total),
-  ajouts: cumulAjouts,
-  retraits: cumulRetraits,
-  encaissements: parseFloat(cumulEncaissements.rows[0].total),
-},
-      },
-      mois: moisFiltre,
-    });
+  res.json({
+  donnees: ventes.rows,
+  totaux_mois: { ...totaux, ajouts, retraits, encaissements: totalEnc },
+  mouvements: mouvements.rows,
+  encaissements: encaissements.rows,
+  en_attente: enAttente.rows,
+  stock_global: {
+    par_type: stock.rows,
+    total_kg_achete: stock.rows.reduce((s, r) => s + parseFloat(r.total_kg || 0), 0),
+    total_kg_vendu: parseFloat(totalVendu.rows[0].total),
+  },
+  caisse_cumulee: {
+    ventes: parseFloat(cumulVentes.rows[0].total),
+    ajouts: cumulAjouts,
+    retraits: cumulRetraits,
+    encaissements: parseFloat(cumulEncaissements.rows[0].total),
+  },
+  total_annee: parseFloat(totalAnneeQ.rows[0].total),
+  annee: anneeFiltre,
+  mois: moisFiltre,
+});
   } catch (err) {
     console.error('graphiqueEmploye:', err);
     res.status(500).json({ message: 'Erreur serveur.' });
@@ -640,84 +675,23 @@ const revenusVentes = async (req, res) => {
 /** GET /api/ventes/journalier?mois=YYYY-MM&annee=YYYY */
 const ventesJournalier = async (req, res) => {
   const moisFiltre = req.query.mois || new Date().toISOString().slice(0, 7);
-  const anneeFiltre = req.query.annee || new Date().getFullYear();
-
   try {
-    // Ventes journalières du mois
-    const ventes = await db.query(`
-      SELECT
-        vj.date_vente::TEXT AS date,
-        COUNT(cv.id) AS nb_clients,
-        COALESCE(SUM(cv.kg_achetes), 0) AS kg_total,
-        COALESCE(SUM(cv.montant_recu), 0) AS montant_encaisse
+    const r = await db.query(`
+      SELECT vj.date_vente::TEXT AS date,
+             COUNT(cv.id) AS nb_clients,
+             COALESCE(SUM(cv.kg_achetes), 0) AS kg_total,
+             COALESCE(SUM(cv.montant_recu), 0) AS montant_encaisse
       FROM ventes_journees vj
       LEFT JOIN clients_vente cv ON cv.journee_id = vj.id
       WHERE TO_CHAR(vj.date_vente, 'YYYY-MM') = $1
-      GROUP BY vj.date_vente
-      ORDER BY vj.date_vente DESC
+      GROUP BY vj.date_vente ORDER BY vj.date_vente DESC
     `, [moisFiltre]);
-
-    // Total annuel
-    const totalAnneeQ = await db.query(`
-      SELECT COALESCE(SUM(cv.montant_recu), 0) AS total
-      FROM ventes_journees vj
-      LEFT JOIN clients_vente cv ON cv.journee_id = vj.id
-      WHERE EXTRACT(YEAR FROM vj.date_vente) = $1
-    `, [anneeFiltre]);
-
-    // Cumul ventes
-    const cumulVentes = await db.query(`
-      SELECT COALESCE(SUM(cv.montant_recu), 0) AS total
-      FROM ventes_journees vj
-      LEFT JOIN clients_vente cv ON cv.journee_id = vj.id
-    `);
-
-    // Mouvements caisse approuvés
-    const cumulMouvements = await db.query(`
-      SELECT
-        type,
-        COALESCE(SUM(montant), 0) AS total
-      FROM mouvements_caisse
-      WHERE statut = 'approuvee'
-      GROUP BY type
-    `);
-
-    // Encaissements approuvés
-    const cumulEncaissements = await db.query(`
-      SELECT COALESCE(SUM(montant), 0) AS total
-      FROM encaissements
-      WHERE statut = 'approuvee'
-    `);
-
-    const cumulAjouts = parseFloat(
-      cumulMouvements.rows.find(r => r.type === 'ajout')?.total || 0
-    );
-
-    const cumulRetraits = parseFloat(
-      cumulMouvements.rows.find(r => r.type === 'retrait')?.total || 0
-    );
-
-    res.json({
-      ventes: ventes.rows,
-
-      total_annee: parseFloat(totalAnneeQ.rows[0].total),
-
-      annee: anneeFiltre,
-
-      caisse_cumulee: {
-        ventes: parseFloat(cumulVentes.rows[0].total),
-        ajouts: cumulAjouts,
-        retraits: cumulRetraits,
-        encaissements: parseFloat(cumulEncaissements.rows[0].total)
-      }
-    });
-
+    res.json(r.rows);
   } catch (err) {
     console.error('ventesJournalier:', err);
     res.status(500).json({ message: 'Erreur serveur.' });
   }
 };
-
 
 module.exports = {
   getOuCreerJournee, ajouterClient, modifierClient, supprimerClient,
