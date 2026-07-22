@@ -192,49 +192,80 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-      {/* Clients du jour */}
-      {(data?.clients_du_jour||[]).length > 0 && (
-        <div className="card overflow-hidden">
-          <div className="px-5 py-3 border-b border-slate-100">
-            <h2 className="text-sm font-semibold text-slate-600">🛒 Clients du {format(new Date(date+'T12:00:00'), 'd MMMM', { locale: fr })}</h2>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-slate-50"><tr>
-                <th className="px-3 py-2 text-left text-xs font-semibold text-slate-500">#</th>
-                <th className="px-3 py-2 text-left text-xs font-semibold text-slate-500">Employé</th>
-                <th className="px-3 py-2 text-right text-xs font-semibold text-slate-500">Kg</th>
-                <th className="px-3 py-2 text-right text-xs font-semibold text-slate-500">Reçu</th>
-                <th className="px-3 py-2 text-right text-xs font-semibold text-slate-500">Reste</th>
-                <th className="px-3 py-2 text-center text-xs font-semibold text-slate-500">Statut</th>
-                <th className="px-3 py-2 text-left text-xs font-semibold text-slate-500">Heure</th>
-              </tr></thead>
-              <tbody className="divide-y divide-slate-50">
-                {data.clients_du_jour.map(c => {
-                  const theorique = parseFloat(c.kg_achetes)*2500;
-                  const reste = theorique - parseFloat(c.montant_recu);
-                  return (
-                    <tr key={c.id} className="hover:bg-slate-50">
-                      <td className="px-3 py-2 text-slate-400 text-xs">C{c.numero_client}</td>
-                      <td className="px-3 py-2 text-slate-600 text-xs">{c.employe_nom}</td>
-                      <td className="px-3 py-2 text-right font-medium">{parseFloat(c.kg_achetes).toFixed(1)}</td>
-                      <td className="px-3 py-2 text-right text-water-700">{parseInt(c.montant_recu).toLocaleString('fr')}</td>
-                      <td className={`px-3 py-2 text-right ${c.reste_annule ? 'text-green-500' : reste > 0 ? 'text-red-500' : 'text-green-600'}`}>
-                        {c.reste_annule ? '✓annulé' : reste > 0 ? parseInt(reste).toLocaleString('fr') : '✓'}
-                      </td>
-                      <td className="px-3 py-2 text-center">
-                        {c.reste_annule_statut === 'en_attente' && <span className="text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded">⏳</span>}
-                      </td>
-                      <td className="px-3 py-2 text-slate-400 text-xs">{c.heure_approx?.slice(0,5)}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
+      
+           {/* ═══ CLIENTS DU JOUR — "Client N" + commentaires ═══ */}
+{(data?.clients_du_jour||[]).length > 0 && (
+  <div className="card overflow-hidden">
+    <div className="px-5 py-3 border-b border-slate-100 flex items-center justify-between">
+      <h2 className="text-sm font-semibold text-slate-600">
+        🛒 Clients du {format(new Date(date+'T12:00:00'), 'd MMMM', { locale: fr })}
+      </h2>
+      <span className="text-xs bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full">
+        {data.clients_du_jour.length} client{data.clients_du_jour.length>1?'s':''}
+      </span>
+    </div>
 
+    <div className="divide-y divide-slate-50">
+      {data.clients_du_jour.map(c => {
+        const theorique = parseFloat(c.kg_achetes)*2500;
+        const reste = theorique - parseFloat(c.montant_recu);
+        return (
+          <div key={c.id} className="px-5 py-3 hover:bg-slate-50 transition">
+            {/* Ligne principale */}
+            <div className="flex items-center gap-2 flex-wrap">
+              {/* "Client N" en badge — plus "C" */}
+              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full bg-ocean-100 text-ocean-700 text-xs font-bold whitespace-nowrap shrink-0">
+                Client {c.numero_client}
+              </span>
+              <span className="text-xs font-medium text-slate-600 bg-slate-100 px-2 py-0.5 rounded shrink-0">
+                {c.employe_nom}
+              </span>
+              <span className="font-bold text-slate-700 text-sm">{parseFloat(c.kg_achetes).toFixed(1)} kg</span>
+              <span className="text-water-700 font-medium text-sm">{parseInt(c.montant_recu).toLocaleString('fr')} FCFA</span>
+              <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+                c.reste_annule ? 'bg-blue-100 text-blue-700'
+                : reste > 0 ? 'bg-red-100 text-red-700'
+                : 'bg-green-100 text-green-700'
+              }`}>
+                {c.reste_annule ? '✓ Reste annulé'
+                  : reste > 0 ? `Reste : ${parseInt(reste).toLocaleString('fr')} F`
+                  : '✓ Soldé'}
+              </span>
+              <span className="text-xs text-slate-400 ml-auto shrink-0">{c.heure_approx?.slice(0,5)}</span>
+            </div>
+
+            {/* Commentaire employé — affiché seulement si présent */}
+            {c.commentaire && (
+              <div className="mt-2 flex items-start gap-1.5 ml-1">
+                <span className="text-slate-300 text-xs shrink-0 mt-0.5">💬</span>
+                <p className="text-xs text-slate-500 italic bg-slate-50 border border-slate-100 px-2.5 py-1.5 rounded-lg leading-relaxed flex-1">
+                  {c.commentaire}
+                </p>
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+
+    {/* Totaux bas */}
+    <div className="px-5 py-3 bg-slate-50 border-t border-slate-200 flex items-center gap-4 flex-wrap">
+      <span className="text-xs text-slate-500 font-semibold">Totaux :</span>
+      <span className="font-bold text-slate-700 text-sm">
+        {data.clients_du_jour.reduce((s,c)=>s+parseFloat(c.kg_achetes||0),0).toFixed(1)} kg
+      </span>
+      <span className="font-bold text-water-700 text-sm">
+        {data.clients_du_jour.reduce((s,c)=>s+parseFloat(c.montant_recu||0),0).toLocaleString('fr')} FCFA encaissés
+      </span>
+      <span className="text-xs font-medium text-red-500">
+        {data.clients_du_jour.reduce((s,c)=>{
+          const r=parseFloat(c.kg_achetes||0)*2500-parseFloat(c.montant_recu||0);
+          return s+(c.reste_annule?0:Math.max(0,r));
+        },0).toLocaleString('fr')} FCFA restants
+      </span>
+    </div>
+  </div>
+)}
       {/* Demandes en attente — badge */}
       {data?.nb_demandes_attente > 0 && (
         <div className="card p-4 border-l-4 border-amber-400 bg-amber-50 flex items-center justify-between">

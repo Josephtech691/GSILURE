@@ -189,6 +189,31 @@ export default function EmployeGraphique() {
               ))}
             </div>
 
+            {/* Total en caisse — nouvelle donnée */}
+<div className="mt-4 pt-4 border-t border-slate-100">
+  <div className="bg-ocean-50 border border-ocean-200 rounded-xl p-4 flex items-center justify-between">
+    <div>
+      <p className="text-xs font-semibold text-ocean-600 uppercase tracking-wide mb-1">
+        💼 Total en caisse
+      </p>
+      <p className="text-2xl font-bold text-ocean-700">
+        {(
+          parseInt(t.montant_total||0) +
+          parseInt(t.ajouts||0) -
+          parseInt(t.retraits||0) -
+          parseInt(t.encaissements||0)
+        ).toLocaleString('fr')} FCFA
+      </p>
+    </div>
+    <div className="text-right text-xs text-ocean-500 space-y-0.5">
+      <p>Ventes : +{parseInt(t.montant_total||0).toLocaleString('fr')} F</p>
+      {parseInt(t.ajouts||0) > 0 && <p>Ajouts : +{parseInt(t.ajouts||0).toLocaleString('fr')} F</p>}
+      {parseInt(t.retraits||0) > 0 && <p>Retraits : -{parseInt(t.retraits||0).toLocaleString('fr')} F</p>}
+      {parseInt(t.encaissements||0) > 0 && <p>Versé patron : -{parseInt(t.encaissements||0).toLocaleString('fr')} F</p>}
+    </div>
+  </div>
+</div>
+
             {/* Demandes en attente */}
             {data?.en_attente?.length > 0 && (
               <div className="mt-3 px-3 py-2 bg-amber-50 rounded-lg">
