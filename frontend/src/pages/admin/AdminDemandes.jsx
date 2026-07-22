@@ -127,7 +127,9 @@ export default function AdminDemandes() {
                       <span className="text-xs px-1.5 py-0.5 rounded bg-white border border-slate-200 text-slate-500">{meta.icon} {meta.label}</span>
                       <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${STATUT_CLS[d.statut]}`}>{d.statut.replace('_', ' ')}</span>
                     </div>
-                    <p className="text-xs text-slate-400 mt-0.5">{formatDistanceToNow(new Date(d.created_at), { addSuffix: true, locale: fr })}</p>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      {d.created_at ? formatDistanceToNow(new Date(d.created_at), { addSuffix: true, locale: fr }) : '—'}
+                       </p>
                   </div>
                   {d.statut === 'en_attente' && (
                     <div className="flex gap-1.5 shrink-0">

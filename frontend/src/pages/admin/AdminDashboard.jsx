@@ -183,7 +183,7 @@ useEffect(() => {
 {/* Tableau des ventes journalières */}
 <div className="card overflow-hidden">
   <div className="px-5 py-3 border-b border-slate-100">
-    <h2 className="text-sm font-semibold text-slate-600">📊 Ventes par jour — {mois}</h2>
+    <h2 className="text-sm font-semibold text-slate-600">📊 Les ventes du mois de — {mois}</h2>
   </div>
   <div className="overflow-x-auto">
     <table className="w-full text-sm">

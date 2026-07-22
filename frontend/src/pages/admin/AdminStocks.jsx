@@ -266,7 +266,9 @@ export default function AdminStocks() {
               <tbody className="divide-y divide-slate-50">
                 {depots.map(d => (
                   <tr key={d.id} className="hover:bg-slate-50">
-                    <td className="px-3 py-2.5 text-slate-600 text-xs">{format(new Date(d.date_depot+'T12:00:00'), 'd MMM yy', { locale: fr })}</td>
+                    <td className="px-3 py-2.5 text-slate-600 text-xs">
+                      {d.date_depot ? format(new Date(d.date_depot+'T12:00:00'), 'd MMM yy', { locale: fr }) : '—'}
+                      </td>
                     <td className="px-3 py-2.5 font-medium text-slate-700 capitalize">{d.type_stock}</td>
                     <td className="px-3 py-2.5 text-slate-500 text-xs">{d.poids_categorie || '—'}</td>
                     <td className="px-3 py-2.5 text-center">
