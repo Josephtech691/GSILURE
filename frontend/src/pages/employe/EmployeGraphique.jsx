@@ -107,6 +107,9 @@ export default function EmployeGraphique() {
 
   const Chart = typeChart === 'bar' ? BarChart : LineChart;
 
+  //nouveau
+  
+
   return (
     <div className="max-w-2xl mx-auto space-y-5">
       <ToastDisplay toast={toast} />
