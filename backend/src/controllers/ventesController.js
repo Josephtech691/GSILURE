@@ -1,7 +1,6 @@
 const db = require('../config/db');
 const PRIX_KG = 2500;
 
-// ─── Utilitaires ────────────────────────────────────────────
 const today = () => new Date().toISOString().split('T')[0];
 
 function calculerTotaux(clients) {
@@ -22,8 +21,6 @@ async function estModificationAutorisee(journeeId) {
 }
 
 // ─── JOURNÉES ───────────────────────────────────────────────
-
-/** GET /api/ventes/journee?date=YYYY-MM-DD&employe_id= */
 const getOuCreerJournee = async (req, res) => {
   const { date, employe_id } = req.query;
   const dateVente = date || today();
@@ -37,10 +34,8 @@ const getOuCreerJournee = async (req, res) => {
     );
 
     if (!result.rows.length) {
-      // Ne créer automatiquement QUE pour aujourd'hui
       if (!isToday && req.user.role !== 'admin')
         return res.status(404).json({ message: 'Aucune journée pour cette date.' });
-
       result = await db.query(
         'INSERT INTO ventes_journees (employe_id, date_vente) VALUES ($1,$2) RETURNING *',
         [empId, dateVente]
@@ -55,8 +50,6 @@ const getOuCreerJournee = async (req, res) => {
     const employe = await db.query(
       'SELECT id, nom, prenom, photo_url FROM users WHERE id = $1', [empId]
     );
-
-    // Vérifier si une modification est autorisée
     const modifAutorisee = !isToday ? await estModificationAutorisee(journee.id) : true;
 
     res.json({
@@ -72,8 +65,6 @@ const getOuCreerJournee = async (req, res) => {
 };
 
 // ─── CLIENTS ────────────────────────────────────────────────
-
-/** POST /api/ventes/journee/:journeeId/clients */
 const ajouterClient = async (req, res) => {
   const { journeeId } = req.params;
   const { kg_achetes, montant_recu, heure_approx, commentaire, type_stock, poids_categorie } = req.body;
@@ -85,32 +76,34 @@ const ajouterClient = async (req, res) => {
 
   const client = await db.getClient();
   try {
-   await client.query('BEGIN');
+    await client.query('BEGIN');
 
-const journee = await client.query('SELECT * FROM ventes_journees WHERE id = $1', [journeeId]);
-if (!journee.rows.length) {
-  await client.query('ROLLBACK');
-  return res.status(404).json({ message: 'Journée non trouvée.' });
-}
-const j = journee.rows[0];
-const dateVenteStr = j.date_vente instanceof Date
-  ? j.date_vente.toISOString().split('T')[0]
-  : String(j.date_vente).split('T')[0];
-const isToday = dateVenteStr === today();
-
-if (req.user.role === 'employee') {
-  if (j.employe_id !== req.user.id) {
-    await client.query('ROLLBACK');
-    return res.status(403).json({ message: 'Accès refusé.' });
-  }
-  if (!isToday) {
-    const autorisee = await estModificationAutorisee(journeeId);
-    if (!autorisee) {
+    const journee = await client.query('SELECT * FROM ventes_journees WHERE id = $1', [journeeId]);
+    if (!journee.rows.length) {
       await client.query('ROLLBACK');
-      return res.status(403).json({ message: 'Journée passée. Demandez une autorisation de modification.' });
+      return res.status(404).json({ message: 'Journée non trouvée.' });
     }
-  }
-}
+
+    const j = journee.rows[0];
+    const dateVenteStr = j.date_vente instanceof Date
+      ? j.date_vente.toISOString().split('T')[0]
+      : String(j.date_vente).split('T')[0];
+    const isToday = dateVenteStr === today();
+
+    if (req.user.role === 'employee') {
+      if (j.employe_id !== req.user.id) {
+        await client.query('ROLLBACK');
+        return res.status(403).json({ message: 'Accès refusé.' });
+      }
+      if (!isToday) {
+        const autorisee = await estModificationAutorisee(journeeId);
+        if (!autorisee) {
+          await client.query('ROLLBACK');
+          return res.status(403).json({ message: 'Journée passée. Demandez une autorisation de modification.' });
+        }
+      }
+    }
+
     const maxNum = await client.query(
       'SELECT COALESCE(MAX(numero_client), 0) AS max FROM clients_vente WHERE journee_id = $1',
       [journeeId]
@@ -119,9 +112,11 @@ if (req.user.role === 'employee') {
     const heure = heure_approx || new Date().toTimeString().slice(0, 8);
 
     const newClient = await client.query(
-      `INSERT INTO clients_vente (journee_id, numero_client, kg_achetes, montant_recu, heure_approx, commentaire, type_stock, poids_categorie)
+      `INSERT INTO clients_vente
+         (journee_id, numero_client, kg_achetes, montant_recu, heure_approx, commentaire, type_stock, poids_categorie)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
-      [journeeId, numeroClient, kg_achetes, montant_recu, heure, commentaire || null, type_stock || null, poids_categorie || null]
+      [journeeId, numeroClient, kg_achetes, montant_recu, heure,
+       commentaire || null, type_stock || null, poids_categorie || null]
     );
 
     await client.query('COMMIT');
@@ -133,8 +128,6 @@ if (req.user.role === 'employee') {
   } finally { client.release(); }
 };
 
-/** PUT /api/ventes/clients/:clientId */
-/** PUT /api/ventes/clients/:clientId */
 const modifierClient = async (req, res) => {
   const { clientId } = req.params;
   const { kg_achetes, montant_recu, heure_approx, commentaire, type_stock, poids_categorie } = req.body;
@@ -161,13 +154,16 @@ const modifierClient = async (req, res) => {
 
     const r = await db.query(
       `UPDATE clients_vente
-       SET kg_achetes = COALESCE($1, kg_achetes), montant_recu = COALESCE($2, montant_recu),
-           heure_approx = COALESCE($3, heure_approx), commentaire = $4,
-           type_stock = COALESCE($5, type_stock), poids_categorie = COALESCE($6, poids_categorie),
-           updated_at = NOW()
+       SET kg_achetes      = COALESCE($1, kg_achetes),
+           montant_recu    = COALESCE($2, montant_recu),
+           heure_approx    = COALESCE($3, heure_approx),
+           commentaire     = $4,
+           type_stock      = COALESCE($5, type_stock),
+           poids_categorie = COALESCE($6, poids_categorie),
+           updated_at      = NOW()
        WHERE id = $7 RETURNING *`,
-      [kg_achetes ?? null, montant_recu ?? null, heure_approx ?? null, commentaire ?? row.commentaire,
-       type_stock ?? null, poids_categorie ?? null, clientId]
+      [kg_achetes ?? null, montant_recu ?? null, heure_approx ?? null,
+       commentaire ?? row.commentaire, type_stock ?? null, poids_categorie ?? null, clientId]
     );
     res.json({ client: r.rows[0] });
   } catch (err) {
@@ -176,7 +172,6 @@ const modifierClient = async (req, res) => {
   }
 };
 
-/** DELETE /api/ventes/clients/:clientId */
 const supprimerClient = async (req, res) => {
   const { clientId } = req.params;
   try {
@@ -205,8 +200,6 @@ const supprimerClient = async (req, res) => {
 };
 
 // ─── ANNULATION RESTE ────────────────────────────────────────
-
-/** POST /api/ventes/clients/:clientId/annuler-reste */
 const demanderAnnulationReste = async (req, res) => {
   const { clientId } = req.params;
   const { motif } = req.body;
@@ -225,20 +218,18 @@ const demanderAnnulationReste = async (req, res) => {
     const reste = parseFloat(cv.rows[0].kg_achetes) * PRIX_KG - parseFloat(cv.rows[0].montant_recu);
     if (reste <= 0) return res.status(400).json({ message: 'Pas de reste à annuler.' });
 
-    // Marquer la demande
     await db.query(
       `UPDATE clients_vente SET reste_annule_statut = 'en_attente', reste_annule_motif = $1 WHERE id = $2`,
       [motif.trim(), clientId]
     );
 
-    // Créer une demande générale
     const r = await db.query(
       `INSERT INTO demandes (employe_id, type, ref_id, ref_table, motif, meta)
        VALUES ($1, 'annulation_reste', $2, 'clients_vente', $3, $4) RETURNING *`,
       [req.user.id, clientId, motif.trim(), JSON.stringify({ reste, client_numero: cv.rows[0].numero_client })]
     );
 
-    res.status(201).json({ message: 'Demande d\'annulation envoyée.', demande: r.rows[0] });
+    res.status(201).json({ message: "Demande d'annulation envoyée.", demande: r.rows[0] });
   } catch (err) {
     console.error('demanderAnnulationReste:', err);
     res.status(500).json({ message: 'Erreur serveur.' });
@@ -246,8 +237,6 @@ const demanderAnnulationReste = async (req, res) => {
 };
 
 // ─── MOUVEMENTS CAISSE ───────────────────────────────────────
-
-/** POST /api/ventes/mouvements-caisse */
 const creerMouvementCaisse = async (req, res) => {
   const { type, montant, commentaire, mois } = req.body;
   if (!['ajout', 'retrait'].includes(type)) return res.status(400).json({ message: 'Type invalide.' });
@@ -261,22 +250,19 @@ const creerMouvementCaisse = async (req, res) => {
        VALUES ($1,$2,$3,$4,$5) RETURNING *`,
       [req.user.id, type, montant, commentaire.trim(), moisCible]
     );
-
     await db.query(
       `INSERT INTO demandes (employe_id, type, ref_id, ref_table, motif, meta)
        VALUES ($1, 'mouvement_caisse', $2, 'mouvements_caisse', $3, $4)`,
       [req.user.id, mc.rows[0].id, commentaire.trim(),
        JSON.stringify({ type_mouvement: type, montant, mois: moisCible })]
     );
-
-    res.status(201).json({ message: 'Demande de mouvement de caisse soumise.', mouvement: mc.rows[0] });
+    res.status(201).json({ message: 'Demande de mouvement soumise.', mouvement: mc.rows[0] });
   } catch (err) {
     console.error('creerMouvementCaisse:', err);
     res.status(500).json({ message: 'Erreur serveur.' });
   }
 };
 
-/** POST /api/ventes/encaissements — Employé déclare un versement soldé */
 const creerEncaissement = async (req, res) => {
   const { montant, commentaire, mois } = req.body;
   if (!montant || isNaN(montant) || Number(montant) <= 0) return res.status(400).json({ message: 'Montant invalide.' });
@@ -288,7 +274,6 @@ const creerEncaissement = async (req, res) => {
        VALUES ($1,$2,$3,$4) RETURNING *`,
       [req.user.id, montant, commentaire?.trim() || null, moisCible]
     );
-
     await db.query(
       `INSERT INTO demandes (employe_id, type, ref_id, ref_table, motif, meta)
        VALUES ($1, 'encaissement', $2, 'encaissements', $3, $4)`,
@@ -296,15 +281,14 @@ const creerEncaissement = async (req, res) => {
        `Versement de ${parseFloat(montant).toLocaleString('fr')} FCFA`,
        JSON.stringify({ montant, mois: moisCible })]
     );
-
-    res.status(201).json({ message: 'Encaissement soumis pour approbation.', encaissement: enc.rows[0] });
+    res.status(201).json({ message: 'Encaissement soumis.', encaissement: enc.rows[0] });
   } catch (err) {
     console.error('creerEncaissement:', err);
     res.status(500).json({ message: 'Erreur serveur.' });
   }
 };
 
-/** GET /api/ventes/graphique-employe?mois=YYYY-MM */
+// ─── GRAPHIQUE EMPLOYÉ ───────────────────────────────────────
 const graphiqueEmploye = async (req, res) => {
   const { mois, annee: anneeQuery } = req.query;
   const empId = req.user.role === 'admin' ? req.query.employe_id : req.user.id;
@@ -312,6 +296,7 @@ const graphiqueEmploye = async (req, res) => {
 
   const moisFiltre = mois || new Date().toISOString().slice(0, 7);
   const [anneeMois, moisNum] = moisFiltre.split('-');
+  // ✅ FIX : utiliser anneeFiltre partout, pas "annee"
   const anneeFiltre = anneeQuery || anneeMois;
 
   try {
@@ -326,54 +311,52 @@ const graphiqueEmploye = async (req, res) => {
       WHERE vj.employe_id = $1
         AND EXTRACT(YEAR FROM vj.date_vente) = $2
         AND EXTRACT(MONTH FROM vj.date_vente) = $3
-      GROUP BY vj.date_vente ORDER BY vj.date_vente`, [empId, anneeFiltre, moisNum]);
+      GROUP BY vj.date_vente ORDER BY vj.date_vente`,
+      // ✅ FIX : anneeFiltre à la place de annee
+      [empId, anneeFiltre, moisNum]
+    );
 
-    // Mouvements caisse approuvés
     const mouvements = await db.query(
       `SELECT * FROM mouvements_caisse WHERE employe_id = $1 AND mois = $2 AND statut = 'approuvee'`,
       [empId, moisFiltre]
     );
 
-    // Encaissements approuvés
     const encaissements = await db.query(
       `SELECT * FROM encaissements WHERE employe_id = $1 AND mois = $2 AND statut = 'approuvee'`,
       [empId, moisFiltre]
     );
 
-    // Totaux CUMULÉS (toute la durée) — pour la caisse réelle de l'employé
-const cumulVentes = await db.query(`
-  SELECT COALESCE(SUM(cv.montant_recu), 0) AS total
-  FROM ventes_journees vj
-  LEFT JOIN clients_vente cv ON cv.journee_id = vj.id
-  WHERE vj.employe_id = $1
-`, [empId]);
+    // Caisse cumulée (toute la durée)
+    const cumulVentes = await db.query(
+      `SELECT COALESCE(SUM(cv.montant_recu), 0) AS total
+       FROM ventes_journees vj LEFT JOIN clients_vente cv ON cv.journee_id = vj.id
+       WHERE vj.employe_id = $1`, [empId]
+    );
 
-const cumulMouvements = await db.query(
-  `SELECT type, COALESCE(SUM(montant), 0) AS total FROM mouvements_caisse
-   WHERE employe_id = $1 AND statut = 'approuvee' GROUP BY type`,
-  [empId]
-);
+    const cumulMouvements = await db.query(
+      `SELECT type, COALESCE(SUM(montant), 0) AS total FROM mouvements_caisse
+       WHERE employe_id = $1 AND statut = 'approuvee' GROUP BY type`, [empId]
+    );
 
-const cumulEncaissements = await db.query(
-  `SELECT COALESCE(SUM(montant), 0) AS total FROM encaissements
-   WHERE employe_id = $1 AND statut = 'approuvee'`,
-  [empId]
-);
+    const cumulEncaissements = await db.query(
+      `SELECT COALESCE(SUM(montant), 0) AS total FROM encaissements
+       WHERE employe_id = $1 AND statut = 'approuvee'`, [empId]
+    );
 
-const cumulAjouts = parseFloat(cumulMouvements.rows.find(r => r.type === 'ajout')?.total || 0);
-const cumulRetraits = parseFloat(cumulMouvements.rows.find(r => r.type === 'retrait')?.total || 0);
+    const cumulAjouts = parseFloat(cumulMouvements.rows.find(r => r.type === 'ajout')?.total || 0);
+    const cumulRetraits = parseFloat(cumulMouvements.rows.find(r => r.type === 'retrait')?.total || 0);
 
-    // En attente
     const enAttente = await db.query(
-      `SELECT type, SUM(montant) AS total FROM mouvements_caisse WHERE employe_id = $1 AND mois = $2 AND statut = 'en_attente' GROUP BY type`,
+      `SELECT type, SUM(montant) AS total FROM mouvements_caisse
+       WHERE employe_id = $1 AND mois = $2 AND statut = 'en_attente' GROUP BY type`,
       [empId, moisFiltre]
     );
 
-    // Stock (pour affichage employé)
     const stock = await db.query(`
       SELECT type_stock, poids_categorie, bac_numero,
              SUM(quantite_kg) AS total_kg, MAX(prix_par_kg) AS prix
       FROM stocks GROUP BY type_stock, poids_categorie, bac_numero ORDER BY bac_numero`);
+
     const totalVendu = await db.query(`SELECT COALESCE(SUM(kg_achetes), 0) AS total FROM clients_vente`);
 
     const totaux = ventes.rows.reduce((acc, r) => ({
@@ -385,42 +368,42 @@ const cumulRetraits = parseFloat(cumulMouvements.rows.find(r => r.type === 'retr
     const ajouts = mouvements.rows.filter(m => m.type === 'ajout').reduce((s, m) => s + parseFloat(m.montant), 0);
     const retraits = mouvements.rows.filter(m => m.type === 'retrait').reduce((s, m) => s + parseFloat(m.montant), 0);
     const totalEnc = encaissements.rows.reduce((s, e) => s + parseFloat(e.montant), 0);
-    const totalAnneeQ = await db.query(`
-  SELECT COALESCE(SUM(cv.montant_recu), 0) AS total
-  FROM ventes_journees vj LEFT JOIN clients_vente cv ON cv.journee_id = vj.id
-  WHERE vj.employe_id = $1 AND EXTRACT(YEAR FROM vj.date_vente) = $2
-`, [empId, anneeFiltre]);
 
-  res.json({
-  donnees: ventes.rows,
-  totaux_mois: { ...totaux, ajouts, retraits, encaissements: totalEnc },
-  mouvements: mouvements.rows,
-  encaissements: encaissements.rows,
-  en_attente: enAttente.rows,
-  stock_global: {
-    par_type: stock.rows,
-    total_kg_achete: stock.rows.reduce((s, r) => s + parseFloat(r.total_kg || 0), 0),
-    total_kg_vendu: parseFloat(totalVendu.rows[0].total),
-  },
-  caisse_cumulee: {
-    ventes: parseFloat(cumulVentes.rows[0].total),
-    ajouts: cumulAjouts,
-    retraits: cumulRetraits,
-    encaissements: parseFloat(cumulEncaissements.rows[0].total),
-  },
-  total_annee: parseFloat(totalAnneeQ.rows[0].total),
-  annee: anneeFiltre,
-  mois: moisFiltre,
-});
+    const totalAnneeQ = await db.query(`
+      SELECT COALESCE(SUM(cv.montant_recu), 0) AS total
+      FROM ventes_journees vj LEFT JOIN clients_vente cv ON cv.journee_id = vj.id
+      WHERE vj.employe_id = $1 AND EXTRACT(YEAR FROM vj.date_vente) = $2`,
+      [empId, anneeFiltre]
+    );
+
+    res.json({
+      donnees: ventes.rows,
+      totaux_mois: { ...totaux, ajouts, retraits, encaissements: totalEnc },
+      mouvements: mouvements.rows,
+      encaissements: encaissements.rows,
+      en_attente: enAttente.rows,
+      stock_global: {
+        par_type: stock.rows,
+        total_kg_achete: stock.rows.reduce((s, r) => s + parseFloat(r.total_kg || 0), 0),
+        total_kg_vendu: parseFloat(totalVendu.rows[0].total),
+      },
+      caisse_cumulee: {
+        ventes: parseFloat(cumulVentes.rows[0].total),
+        ajouts: cumulAjouts,
+        retraits: cumulRetraits,
+        encaissements: parseFloat(cumulEncaissements.rows[0].total),
+      },
+      total_annee: parseFloat(totalAnneeQ.rows[0].total),
+      annee: anneeFiltre,
+      mois: moisFiltre,
+    });
   } catch (err) {
     console.error('graphiqueEmploye:', err);
     res.status(500).json({ message: 'Erreur serveur.' });
   }
 };
 
-// ─── TABLEAU DE BORD ADMIN ──────────────────────────────────
-
-/** GET /api/ventes/dashboard */
+// ─── DASHBOARD ADMIN ─────────────────────────────────────────
 const dashboard = async (req, res) => {
   const { date, employe_id, mois } = req.query;
   const dateFiltre = date || today();
@@ -431,7 +414,6 @@ const dashboard = async (req, res) => {
     let empFilter = '';
     if (employe_id) { params.push(employe_id); empFilter = `AND vj.employe_id = $${params.length}`; }
 
-    // Stats par employé pour le jour
     const statsJour = await db.query(`
       SELECT u.id AS employe_id, u.nom || ' ' || u.prenom AS employe_nom,
              COALESCE(SUM(cv.kg_achetes), 0) AS kg_vendus_jour,
@@ -450,21 +432,22 @@ const dashboard = async (req, res) => {
       nb_clients: acc.nb_clients + parseInt(r.nb_clients),
     }), { kg_vendus: 0, ca_total: 0, nb_clients: 0 });
 
-    // Casse + encaissés total par employé
     const casse = await db.query(`
       SELECT u.id AS employe_id, u.nom || ' ' || u.prenom AS employe_nom,
              COALESCE(SUM(cv.montant_recu), 0) AS total_encaisse_ventes,
              COALESCE(SUM(cv.kg_achetes) * 2500, 0) AS total_valeur_theorique,
-             (SELECT COALESCE(SUM(mc.montant), 0) FROM mouvements_caisse mc WHERE mc.employe_id = u.id AND mc.statut = 'approuvee' AND mc.type = 'ajout') AS total_ajouts,
-             (SELECT COALESCE(SUM(mc.montant), 0) FROM mouvements_caisse mc WHERE mc.employe_id = u.id AND mc.statut = 'approuvee' AND mc.type = 'retrait') AS total_retraits,
-             (SELECT COALESCE(SUM(e.montant), 0) FROM encaissements e WHERE e.employe_id = u.id AND e.statut = 'approuvee') AS total_verse_patron
+             (SELECT COALESCE(SUM(mc.montant), 0) FROM mouvements_caisse mc
+              WHERE mc.employe_id = u.id AND mc.statut = 'approuvee' AND mc.type = 'ajout') AS total_ajouts,
+             (SELECT COALESCE(SUM(mc.montant), 0) FROM mouvements_caisse mc
+              WHERE mc.employe_id = u.id AND mc.statut = 'approuvee' AND mc.type = 'retrait') AS total_retraits,
+             (SELECT COALESCE(SUM(e.montant), 0) FROM encaissements e
+              WHERE e.employe_id = u.id AND e.statut = 'approuvee') AS total_verse_patron
       FROM users u
       LEFT JOIN ventes_journees vj ON vj.employe_id = u.id
       LEFT JOIN clients_vente cv ON cv.journee_id = vj.id
       WHERE u.role = 'employee' AND u.actif = TRUE
       GROUP BY u.id, u.nom, u.prenom ORDER BY u.nom`);
 
-    // Encaissements approuvés du mois et total
     const encaissMois = await db.query(
       `SELECT COALESCE(SUM(montant), 0) AS total FROM encaissements WHERE statut = 'approuvee' AND mois = $1`,
       [moisFiltre]
@@ -473,16 +456,11 @@ const dashboard = async (req, res) => {
       `SELECT COALESCE(SUM(montant), 0) AS total FROM encaissements WHERE statut = 'approuvee'`
     );
 
-    // Stock
     const stock = await db.query(`
       SELECT COALESCE(SUM(quantite_kg), 0) AS total_achete,
              (SELECT COALESCE(SUM(kg_achetes), 0) FROM clients_vente) AS total_vendu
       FROM stocks`);
 
-    const totalAchete = parseFloat(stock.rows[0].total_achete);
-    const totalVendu = parseFloat(stock.rows[0].total_vendu);
-
-    // Clients du jour
     const clientsDuJour = await db.query(`
       SELECT cv.*, u.nom || ' ' || u.prenom AS employe_nom
       FROM clients_vente cv
@@ -491,7 +469,6 @@ const dashboard = async (req, res) => {
       WHERE vj.date_vente = $1 ${empFilter}
       ORDER BY vj.employe_id, cv.numero_client`, params);
 
-    // Nb demandes en attente
     const demandesEnAttente = await db.query(
       `SELECT COUNT(*) AS nb FROM demandes WHERE statut = 'en_attente'`
     );
@@ -507,7 +484,11 @@ const dashboard = async (req, res) => {
         total: parseFloat(encaissTotal.rows[0].total),
         mois_filtre: moisFiltre,
       },
-      stock: { total_kg_achete: totalAchete, total_kg_vendu: totalVendu, reste_kg: totalAchete - totalVendu },
+      stock: {
+        total_kg_achete: parseFloat(stock.rows[0].total_achete),
+        total_kg_vendu: parseFloat(stock.rows[0].total_vendu),
+        reste_kg: parseFloat(stock.rows[0].total_achete) - parseFloat(stock.rows[0].total_vendu),
+      },
       clients_du_jour: clientsDuJour.rows,
       nb_demandes_attente: parseInt(demandesEnAttente.rows[0].nb),
     });
@@ -517,15 +498,12 @@ const dashboard = async (req, res) => {
   }
 };
 
-// ─── DEMANDES UNIFIÉES ──────────────────────────────────────
-
-/** GET /api/ventes/demandes */
+// ─── DEMANDES UNIFIÉES ───────────────────────────────────────
 const listerDemandes = async (req, res) => {
   const { statut, type } = req.query;
   try {
-    let q = `
-      SELECT d.*, u.nom || ' ' || u.prenom AS employe_nom, u.email AS employe_email, u.photo_url
-      FROM demandes d JOIN users u ON d.employe_id = u.id WHERE 1=1`;
+    let q = `SELECT d.*, u.nom || ' ' || u.prenom AS employe_nom, u.email AS employe_email, u.photo_url
+             FROM demandes d JOIN users u ON d.employe_id = u.id WHERE 1=1`;
     const params = [];
     if (statut) { params.push(statut); q += ` AND d.statut = $${params.length}`; }
     if (type)   { params.push(type);   q += ` AND d.type = $${params.length}`; }
@@ -535,7 +513,6 @@ const listerDemandes = async (req, res) => {
   } catch (err) { res.status(500).json({ message: 'Erreur serveur.' }); }
 };
 
-/** PATCH /api/ventes/demandes/:id */
 const traiterDemande = async (req, res) => {
   const { id } = req.params;
   const { statut } = req.body;
@@ -545,8 +522,7 @@ const traiterDemande = async (req, res) => {
   const client = await db.getClient();
   try {
     await client.query('BEGIN');
-
-    const dr = await client.query('SELECT * FROM demandes WHERE id = $1 AND statut = \'en_attente\'', [id]);
+    const dr = await client.query("SELECT * FROM demandes WHERE id = $1 AND statut = 'en_attente'", [id]);
     if (!dr.rows.length) {
       await client.query('ROLLBACK');
       return res.status(404).json({ message: 'Demande non trouvée ou déjà traitée.' });
@@ -561,7 +537,6 @@ const traiterDemande = async (req, res) => {
     );
 
     if (statut === 'approuvee') {
-      // Actions selon le type
       if (demande.type === 'annulation_reste') {
         await client.query(
           `UPDATE clients_vente SET reste_annule = TRUE, reste_annule_statut = 'approuvee' WHERE id = $1`,
@@ -579,11 +554,8 @@ const traiterDemande = async (req, res) => {
         );
       }
     } else {
-      // Refus : mettre à jour le statut des tables liées
       if (demande.type === 'annulation_reste') {
-        await client.query(
-          `UPDATE clients_vente SET reste_annule_statut = 'refusee' WHERE id = $1`, [demande.ref_id]
-        );
+        await client.query(`UPDATE clients_vente SET reste_annule_statut = 'refusee' WHERE id = $1`, [demande.ref_id]);
       } else if (demande.type === 'mouvement_caisse') {
         await client.query(`UPDATE mouvements_caisse SET statut = 'refusee' WHERE id = $1`, [demande.ref_id]);
       } else if (demande.type === 'encaissement') {
@@ -592,7 +564,6 @@ const traiterDemande = async (req, res) => {
     }
 
     await client.query('COMMIT');
-
     const updated = await db.query('SELECT * FROM demandes WHERE id = $1', [id]);
     res.json({ message: `Demande ${statut}.`, demande: updated.rows[0] });
   } catch (err) {
@@ -602,7 +573,6 @@ const traiterDemande = async (req, res) => {
   } finally { client.release(); }
 };
 
-/** POST /api/ventes/demandes-modification (demande de modif journée) */
 const demanderModification = async (req, res) => {
   const { journee_id, motif } = req.body;
   if (!journee_id || !motif) return res.status(400).json({ message: 'journee_id et motif requis.' });
@@ -618,7 +588,7 @@ const demanderModification = async (req, res) => {
       [journee_id]
     );
     if (existante.rows.length)
-      return res.status(409).json({ message: 'Une demande est déjà en cours pour cette journée.' });
+      return res.status(409).json({ message: 'Une demande est déjà en cours.' });
 
     const r = await db.query(
       `INSERT INTO demandes (employe_id, type, ref_id, ref_table, date_cible, motif, meta)
@@ -626,14 +596,14 @@ const demanderModification = async (req, res) => {
       [req.user.id, journee_id, j.rows[0].date_vente, motif,
        JSON.stringify({ journee_id, date: j.rows[0].date_vente })]
     );
-    res.status(201).json({ message: 'Demande envoyée à l\'administrateur.', demande: r.rows[0] });
+    res.status(201).json({ message: "Demande envoyée.", demande: r.rows[0] });
   } catch (err) {
     console.error('demanderModification:', err);
     res.status(500).json({ message: 'Erreur serveur.' });
   }
 };
 
-/** GET /api/ventes/revenus?mois=YYYY-MM&annee=YYYY&type_stock= */
+// ─── REVENUS (admin) ─────────────────────────────────────────
 const revenusVentes = async (req, res) => {
   const { mois, annee, type_stock } = req.query;
   const moisFiltre = mois || new Date().toISOString().slice(0, 7);
@@ -643,14 +613,14 @@ const revenusVentes = async (req, res) => {
     const revenuMois = await db.query(`
       SELECT COALESCE(SUM(cv.montant_recu), 0) AS total
       FROM ventes_journees vj LEFT JOIN clients_vente cv ON cv.journee_id = vj.id
-      WHERE TO_CHAR(vj.date_vente, 'YYYY-MM') = $1
-    `, [moisFiltre]);
+      WHERE TO_CHAR(vj.date_vente, 'YYYY-MM') = $1`, [moisFiltre]
+    );
 
     const revenuAnnee = await db.query(`
       SELECT COALESCE(SUM(cv.montant_recu), 0) AS total
       FROM ventes_journees vj LEFT JOIN clients_vente cv ON cv.journee_id = vj.id
-      WHERE EXTRACT(YEAR FROM vj.date_vente) = $1
-    `, [anneeFiltre]);
+      WHERE EXTRACT(YEAR FROM vj.date_vente) = $1`, [anneeFiltre]
+    );
 
     let revenuStock = 0;
     if (type_stock) {
@@ -672,7 +642,7 @@ const revenusVentes = async (req, res) => {
   }
 };
 
-/** GET /api/ventes/journalier?mois=YYYY-MM&annee=YYYY */
+// ─── VENTES JOURNALIER (admin) ───────────────────────────────
 const ventesJournalier = async (req, res) => {
   const moisFiltre = req.query.mois || new Date().toISOString().slice(0, 7);
   try {
@@ -684,8 +654,8 @@ const ventesJournalier = async (req, res) => {
       FROM ventes_journees vj
       LEFT JOIN clients_vente cv ON cv.journee_id = vj.id
       WHERE TO_CHAR(vj.date_vente, 'YYYY-MM') = $1
-      GROUP BY vj.date_vente ORDER BY vj.date_vente DESC
-    `, [moisFiltre]);
+      GROUP BY vj.date_vente ORDER BY vj.date_vente DESC`, [moisFiltre]
+    );
     res.json(r.rows);
   } catch (err) {
     console.error('ventesJournalier:', err);
@@ -696,6 +666,6 @@ const ventesJournalier = async (req, res) => {
 module.exports = {
   getOuCreerJournee, ajouterClient, modifierClient, supprimerClient,
   demanderAnnulationReste, creerMouvementCaisse, creerEncaissement,
-  graphiqueEmploye, dashboard, listerDemandes, traiterDemande, demanderModification,revenusVentes,
-  ventesJournalier,
+  graphiqueEmploye, dashboard, listerDemandes, traiterDemande, demanderModification,
+  revenusVentes, ventesJournalier,
 };

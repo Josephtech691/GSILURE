@@ -6,18 +6,6 @@ import { getSocket } from '../../lib/socket';
 import Avatar from '../../components/ui/Avatar';
 import { useToast, ToastDisplay } from '../../components/ui/Toast';
 
-const formatDateSafe = (val, motif = 'd MMM yy') => {
-  if (!val) return '—';
-  try {
-    const dateOnly = String(val).split('T')[0]; // garde uniquement "YYYY-MM-DD"
-    const d = new Date(dateOnly + 'T12:00:00');
-    if (isNaN(d.getTime())) return '—';
-    return format(d, motif, { locale: fr });
-  } catch {
-    return '—';
-  }
-};
-
 const TYPE_META = {
   modification_journee: { icon: '📅', label: 'Modification journée', color: 'border-amber-400 bg-amber-50' },
   annulation_reste:     { icon: '🤝', label: 'Annulation de reste',  color: 'border-blue-400 bg-blue-50' },
@@ -126,7 +114,11 @@ export default function AdminDemandes() {
             const meta = TYPE_META[d.type] || { icon: '📋', label: d.type, color: 'border-slate-300 bg-slate-50' };
             const expireAt = d.expire_at ? new Date(d.expire_at) : null;
             const expireBientot = expireAt && expireAt > new Date() && expireAt < new Date(Date.now() + 2*3600*1000);
-            const metaData = d.meta ? (typeof d.meta === 'string' ? JSON.parse(d.meta) : d.meta) : {};
+            let metaData = {};
+            try { metaData = d.meta ? (typeof d.meta === 'string' ? JSON.parse(d.meta) : d.meta) : {}; } catch {}
+            const createdAtSafe = d.created_at ? (() => { try { return formatDistanceToNow(new Date(d.created_at), { addSuffix: true, locale: fr }); } catch { return ''; } })() : '';
+            const dateCibleSafe = d.date_cible ? (() => { try { return format(new Date(d.date_cible+'T12:00:00'), 'EEEE d MMMM yyyy', { locale: fr }); } catch { return d.date_cible; } })() : '';
+            const expireSafe = expireAt ? (() => { try { return formatDistanceToNow(expireAt, { addSuffix: true, locale: fr }); } catch { return ''; } })() : '';
 
             return (
               <div key={d.id} className={`card p-4 border-l-4 ${meta.color}`}>
@@ -139,9 +131,7 @@ export default function AdminDemandes() {
                       <span className="text-xs px-1.5 py-0.5 rounded bg-white border border-slate-200 text-slate-500">{meta.icon} {meta.label}</span>
                       <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${STATUT_CLS[d.statut]}`}>{d.statut.replace('_', ' ')}</span>
                     </div>
-                    <p className="text-xs text-slate-400 mt-0.5">
-                      {d.created_at ? formatDistanceToNow(new Date(d.created_at), { addSuffix: true, locale: fr }) : '—'}
-                       </p>
+                    <p className="text-xs text-slate-400 mt-0.5">{createdAtSafe}</p>
                   </div>
                   {d.statut === 'en_attente' && (
                     <div className="flex gap-1.5 shrink-0">
@@ -153,9 +143,9 @@ export default function AdminDemandes() {
 
                 {/* Détails selon le type */}
                 <div className="mt-3 px-3 py-2.5 bg-white rounded-lg border border-slate-100 space-y-1">
-                  {d.date_cible && (
+                  {d.date_cible && dateCibleSafe && (
                     <p className="text-xs text-slate-500">
-                      📅 Date concernée : <strong>{format(new Date(d.date_cible+'T12:00:00'), 'EEEE d MMMM yyyy', { locale: fr })}</strong>
+                      📅 Date concernée : <strong>{dateCibleSafe}</strong>
                     </p>
                   )}
                   {d.type === 'mouvement_caisse' && metaData.montant && (
@@ -179,9 +169,9 @@ export default function AdminDemandes() {
                   <p className="text-sm text-slate-700 font-medium">"{d.motif}"</p>
                 </div>
 
-                {expireAt && d.statut === 'approuvee' && (
+                {expireAt && d.statut === 'approuvee' && expireSafe && (
                   <p className={`text-xs mt-2 font-medium ${expireBientot ? 'text-red-500' : 'text-water-600'}`}>
-                    ⏱ Fenêtre de modification expire {formatDistanceToNow(expireAt, { addSuffix: true, locale: fr })}
+                    ⏱ Fenêtre de modification expire {expireSafe}
                   </p>
                 )}
               </div>
