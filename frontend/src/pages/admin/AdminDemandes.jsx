@@ -6,6 +6,18 @@ import { getSocket } from '../../lib/socket';
 import Avatar from '../../components/ui/Avatar';
 import { useToast, ToastDisplay } from '../../components/ui/Toast';
 
+const formatDateSafe = (val, motif = 'd MMM yy') => {
+  if (!val) return '—';
+  try {
+    const dateOnly = String(val).split('T')[0]; // garde uniquement "YYYY-MM-DD"
+    const d = new Date(dateOnly + 'T12:00:00');
+    if (isNaN(d.getTime())) return '—';
+    return format(d, motif, { locale: fr });
+  } catch {
+    return '—';
+  }
+};
+
 const TYPE_META = {
   modification_journee: { icon: '📅', label: 'Modification journée', color: 'border-amber-400 bg-amber-50' },
   annulation_reste:     { icon: '🤝', label: 'Annulation de reste',  color: 'border-blue-400 bg-blue-50' },

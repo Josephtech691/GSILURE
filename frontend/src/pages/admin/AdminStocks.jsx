@@ -4,6 +4,18 @@ import { fr } from 'date-fns/locale';
 import api from '../../lib/api';
 import { useToast, ToastDisplay } from '../../components/ui/Toast';
 
+const formatDateSafe = (val, motif = 'd MMM yy') => {
+  if (!val) return '—';
+  try {
+    const dateOnly = String(val).split('T')[0]; // garde uniquement "YYYY-MM-DD"
+    const d = new Date(dateOnly + 'T12:00:00');
+    if (isNaN(d.getTime())) return '—';
+    return format(d, motif, { locale: fr });
+  } catch {
+    return '—';
+  }
+};
+
 const TYPES_POISSONS = ['silure', 'tilapia', 'carpe', 'autre'];
 const CATEGORIES_POIDS = ['alevins', '200g', '400g', '500g', '600g', '800g', '1kg+'];
 const COULEURS_BAC = ['bg-blue-100 text-blue-700','bg-green-100 text-green-700','bg-purple-100 text-purple-700','bg-amber-100 text-amber-700','bg-red-100 text-red-700','bg-teal-100 text-teal-700','bg-indigo-100 text-indigo-700'];
