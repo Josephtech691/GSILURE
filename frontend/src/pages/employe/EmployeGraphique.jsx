@@ -226,9 +226,7 @@ export default function EmployeGraphique() {
     <p className="text-2xl font-bold text-water-700">
       {(
         parseInt(t.montant_total||0) +
-        parseInt(t.ajouts||0) -
-        parseInt(t.retraits||0) -
-        parseInt(t.encaissements||0)
+        parseInt(t.ajouts||0)
       ).toLocaleString('fr')} FCFA
     </p>
     <div className="text-xs text-slate-500 mt-2 space-y-0.5">
