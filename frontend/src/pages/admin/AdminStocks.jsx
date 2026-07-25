@@ -169,7 +169,7 @@ export default function AdminStocks() {
                   </div>
                   {contenu.length > 0 && (
                     <div className="px-3 pb-2 text-xs text-slate-400">
-                      Dernier dépôt : {contenu[0]?.dernier_depot ? format(new Date(contenu[0].dernier_depot+'T12:00:00'), 'd MMM', { locale: fr }) : '—'}
+                      Dernier dépôt : {formatDateSafe(contenu[0]?.dernier_depot, 'd MMM')}
                     </div>
                   )}
                 </div>
@@ -279,8 +279,8 @@ export default function AdminStocks() {
                 {depots.map(d => (
                   <tr key={d.id} className="hover:bg-slate-50">
                     <td className="px-3 py-2.5 text-slate-600 text-xs">
-                      {d.date_depot ? format(new Date(d.date_depot+'T12:00:00'), 'd MMM yy', { locale: fr }) : '—'}
-                      </td>
+                   {formatDateSafe(d.date_depot, 'd MMM yy')}
+                    </td>
                     <td className="px-3 py-2.5 font-medium text-slate-700 capitalize">{d.type_stock}</td>
                     <td className="px-3 py-2.5 text-slate-500 text-xs">{d.poids_categorie || '—'}</td>
                     <td className="px-3 py-2.5 text-center">
@@ -352,9 +352,7 @@ export default function AdminStocks() {
                     <td className="px-4 py-2.5 font-medium text-slate-700 capitalize">{p?.type_stock || '—'}</td>
                     <td className="px-4 py-2.5 text-slate-500">{p?.poids_categorie || 'Toutes'}</td>
                     <td className="px-4 py-2.5 text-right font-bold text-water-700">{parseInt(p?.prix_par_kg || 0).toLocaleString('fr')} FCFA</td>
-                    <td className="px-4 py-2.5 text-slate-400 text-xs">
-                      {p?.date_debut ? (() => { try { return format(new Date(p.date_debut+'T12:00:00'), 'd MMM yyyy', { locale: fr }); } catch { return '—'; } })() : '—'}
-                    </td>
+                    <td className="px-4 py-2.5 text-slate-400 text-xs">{formatDateSafe(p?.date_debut, 'd MMM yyyy')}</td>
                   </tr>
                 ))}
               </tbody>
