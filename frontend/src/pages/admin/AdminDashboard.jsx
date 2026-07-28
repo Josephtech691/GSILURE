@@ -88,12 +88,8 @@ useEffect(() => {
 
   return (
     <div className="space-y-6 max-w-5xl">
-      {/* En-tête + filtres */}
-      <div className="flex items-start justify-between flex-wrap gap-3">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-800">Tableau de bord</h1>
-
-      {/* Stock */}
+      <h1 className="text-2xl font-bold text-slate-800">Tableau de bord</h1>
+            {/* Stock */}
       <div className="card p-5">
         <h2 className="text-sm font-semibold text-slate-600 mb-4">📦 État du stock global</h2>
         <div className="grid grid-cols-3 gap-4">
@@ -191,6 +187,12 @@ useEffect(() => {
       </div>
 
       
+
+      {/* En-tête + filtres */}
+      <div className="flex items-start justify-between flex-wrap gap-3">
+        <div>
+          
+
 
           {/*donnees du jour*/}
 
