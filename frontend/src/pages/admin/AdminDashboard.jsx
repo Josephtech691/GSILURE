@@ -92,41 +92,6 @@ useEffect(() => {
       <div className="flex items-start justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold text-slate-800">Tableau de bord</h1>
-          <p className="text-sm text-slate-500">{format(new Date(date+'T12:00:00'), 'EEEE d MMMM yyyy', { locale: fr })}</p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <select value={filtreEmploye} onChange={e => setFiltreEmploye(e.target.value)} className="input w-auto text-sm">
-            <option value="">Tous les employés</option>
-            {employes.map(e => <option key={e.id} value={e.id}>{e.prenom} {e.nom}</option>)}
-          </select>
-          <input type="date" value={date} max={todayStr()} onChange={e => setDate(e.target.value)} className="input w-auto text-sm" />
-        </div>
-      </div>
-
-      {/* Stats du jour */}
-      <div>
-        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3">Journée du {format(new Date(date+'T12:00:00'), 'd MMM', { locale: fr })}</p>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          <StatCard icon="⚖️" label="Kg vendus" value={`${(t.kg_vendus||0).toFixed(1)} kg`} color="ocean" />
-          <StatCard icon="💵" label="CA encaissé" value={`${parseInt(t.ca_total||0).toLocaleString('fr')} F`} color="water" />
-          <StatCard icon="👥" label="Clients" value={t.nb_clients||0} color="slate" />
-          <StatCard icon="⚠️" label="Reste à percevoir" value={`${parseInt((t.kg_vendus||0)*2500 - (t.ca_total||0)).toLocaleString('fr')} F`} color="amber" />
-        </div>
-      </div>
-
-      {/* Encaissements */}
-      <div>
-        <div className="flex items-center gap-3 mb-3">
-          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide flex-1">Encaissements (versements au patron)</p>
-          <select value={mois} onChange={e => setMois(e.target.value)} className="input w-auto text-xs py-1">
-            {moisOptions.map(o => <option key={o.val} value={o.val}>{o.label}</option>)}
-          </select>
-        </div>
-        <div className="grid grid-cols-2 gap-3">
-          <StatCard icon="📅" label={`Encaissé en ${moisOptions.find(o=>o.val===mois)?.label||mois}`} value={`${parseInt(enc.mois||0).toLocaleString('fr')} FCFA`} color="purple" />
-          <StatCard icon="💰" label="Total encaissé (tous mois)" value={`${parseInt(enc.total||0).toLocaleString('fr')} FCFA`} color="purple" />
-        </div>
-      </div>
 
       {/* Stock */}
       <div className="card p-5">
@@ -158,6 +123,9 @@ useEffect(() => {
         )}
       </div>
 
+
+
+
       {/* Revenus */}
 <div>
   <div className="flex items-center gap-3 mb-3 flex-wrap">
@@ -180,32 +148,77 @@ useEffect(() => {
   </div>
 </div>
 
-{/* Tableau des ventes journalières */}
-<div className="card overflow-hidden">
-  <div className="px-5 py-3 border-b border-slate-100">
-    <h2 className="text-sm font-semibold text-slate-600">📊 Les ventes du mois de — {mois}</h2>
-  </div>
-  <div className="overflow-x-auto">
-    <table className="w-full text-sm">
-      <thead className="bg-slate-50"><tr>
-        <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-500">Date</th>
-        <th className="px-4 py-2.5 text-right text-xs font-semibold text-slate-500">Clients</th>
-        <th className="px-4 py-2.5 text-right text-xs font-semibold text-slate-500">Kg vendus</th>
-        <th className="px-4 py-2.5 text-right text-xs font-semibold text-slate-500">Encaissé</th>
-      </tr></thead>
-      <tbody className="divide-y divide-slate-50">
-        {ventesJour.map(v => (
-          <tr key={v.date} className="hover:bg-slate-50 cursor-pointer" onClick={() => setDate(v.date)}>
-            <td className="px-4 py-3 font-medium text-slate-700">{format(new Date(v.date+'T12:00:00'), 'EEE d MMM', { locale: fr })}</td>
-            <td className="px-4 py-3 text-right">{v.nb_clients}</td>
-            <td className="px-4 py-3 text-right">{parseFloat(v.kg_total).toFixed(1)} kg</td>
-            <td className="px-4 py-3 text-right text-water-700 font-medium">{parseInt(v.montant_encaisse).toLocaleString('fr')} F</td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
-  </div>
-</div>
+      {/* Encaissements */}
+      <div>
+        <div className="flex items-center gap-3 mb-3">
+          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide flex-1">Encaissements (versements au patron)</p>
+          <select value={mois} onChange={e => setMois(e.target.value)} className="input w-auto text-xs py-1">
+            {moisOptions.map(o => <option key={o.val} value={o.val}>{o.label}</option>)}
+          </select>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <StatCard icon="📅" label={`Encaissé en ${moisOptions.find(o=>o.val===mois)?.label||mois}`} value={`${parseInt(enc.mois||0).toLocaleString('fr')} FCFA`} color="purple" />
+          <StatCard icon="💰" label="Total encaissé (tous mois)" value={`${parseInt(enc.total||0).toLocaleString('fr')} FCFA`} color="purple" />
+        </div>
+      </div>
+      {/* Casse par employé */}
+      <div className="card overflow-hidden">
+        <div className="px-5 py-3 border-b border-slate-100">
+          <h2 className="text-sm font-semibold text-slate-600">💼 Casse — Argent total détenu par employé</h2>
+        </div>
+        <div className="divide-y divide-slate-50">
+          {(data?.casse_employes||[]).map(emp => {
+            const casseBrute = parseFloat(emp.total_encaisse_ventes||0) + parseFloat(emp.total_ajouts||0) - parseFloat(emp.total_retraits||0);
+            const casseNette = casseBrute - parseFloat(emp.total_verse_patron||0);
+            return (
+              <div key={emp.employe_id} className="flex items-center px-5 py-3 gap-4">
+                <Avatar user={{ nom: emp.employe_nom?.split(' ').slice(-1)[0]||'', prenom: emp.employe_nom?.split(' ')[0]||'' }} size="sm" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-slate-700">{emp.employe_nom}</p>
+                  <p className="text-xs text-slate-400">
+                    Théorique : {parseInt(emp.total_valeur_theorique||0).toLocaleString('fr')} F
+                    {parseFloat(emp.total_verse_patron||0) > 0 && <span className="ml-2 text-purple-500">· Versé patron : {parseInt(emp.total_verse_patron).toLocaleString('fr')} F</span>}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="text-sm font-bold text-water-700">{parseInt(Math.max(0, casseNette)).toLocaleString('fr')} FCFA</p>
+                  <p className="text-xs text-slate-400">en caisse</p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      
+
+          {/*donnees du jour*/}
+
+          <p className="text-sm text-slate-500">{format(new Date(date+'T12:00:00'), 'EEEE d MMMM yyyy', { locale: fr })}</p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <select value={filtreEmploye} onChange={e => setFiltreEmploye(e.target.value)} className="input w-auto text-sm">
+            <option value="">Tous les employés</option>
+            {employes.map(e => <option key={e.id} value={e.id}>{e.prenom} {e.nom}</option>)}
+          </select>
+          <input type="date" value={date} max={todayStr()} onChange={e => setDate(e.target.value)} className="input w-auto text-sm" />
+        </div>
+      </div>
+
+      {/* Stats du jour */}
+      <div>
+        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3">Journée du {format(new Date(date+'T12:00:00'), 'd MMM', { locale: fr })}</p>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <StatCard icon="⚖️" label="Kg vendus" value={`${(t.kg_vendus||0).toFixed(1)} kg`} color="ocean" />
+          <StatCard icon="💵" label="CA encaissé" value={`${parseInt(t.ca_total||0).toLocaleString('fr')} F`} color="water" />
+          <StatCard icon="👥" label="Clients" value={t.nb_clients||0} color="slate" />
+          <StatCard icon="⚠️" label="Reste à percevoir" value={`${parseInt((t.kg_vendus||0)*2500 - (t.ca_total||0)).toLocaleString('fr')} F`} color="amber" />
+        </div>
+      </div>
+
+
+
+
 
       {/* Stats par employé */}
       <div className="card overflow-hidden">
@@ -238,36 +251,7 @@ useEffect(() => {
         </div>
       </div>
 
-      {/* Casse par employé */}
-      <div className="card overflow-hidden">
-        <div className="px-5 py-3 border-b border-slate-100">
-          <h2 className="text-sm font-semibold text-slate-600">💼 Casse — Argent total détenu par employé</h2>
-        </div>
-        <div className="divide-y divide-slate-50">
-          {(data?.casse_employes||[]).map(emp => {
-            const casseBrute = parseFloat(emp.total_encaisse_ventes||0) + parseFloat(emp.total_ajouts||0) - parseFloat(emp.total_retraits||0);
-            const casseNette = casseBrute - parseFloat(emp.total_verse_patron||0);
-            return (
-              <div key={emp.employe_id} className="flex items-center px-5 py-3 gap-4">
-                <Avatar user={{ nom: emp.employe_nom?.split(' ').slice(-1)[0]||'', prenom: emp.employe_nom?.split(' ')[0]||'' }} size="sm" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-slate-700">{emp.employe_nom}</p>
-                  <p className="text-xs text-slate-400">
-                    Théorique : {parseInt(emp.total_valeur_theorique||0).toLocaleString('fr')} F
-                    {parseFloat(emp.total_verse_patron||0) > 0 && <span className="ml-2 text-purple-500">· Versé patron : {parseInt(emp.total_verse_patron).toLocaleString('fr')} F</span>}
-                  </p>
-                </div>
-                <div className="text-right">
-                  <p className="text-sm font-bold text-water-700">{parseInt(Math.max(0, casseNette)).toLocaleString('fr')} FCFA</p>
-                  <p className="text-xs text-slate-400">en caisse</p>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
 
-      
            {/* ═══ CLIENTS DU JOUR — "Client N" + commentaires ═══ */}
 {(data?.clients_du_jour||[]).length > 0 && (
   <div className="card overflow-hidden">
@@ -341,6 +325,35 @@ useEffect(() => {
     </div>
   </div>
 )}
+
+{/* Tableau des ventes journalières */}
+<div className="card overflow-hidden">
+  <div className="px-5 py-3 border-b border-slate-100">
+    <h2 className="text-sm font-semibold text-slate-600">📊 Les ventes du mois de — {mois}</h2>
+  </div>
+  <div className="overflow-x-auto">
+    <table className="w-full text-sm">
+      <thead className="bg-slate-50"><tr>
+        <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-500">Date</th>
+        <th className="px-4 py-2.5 text-right text-xs font-semibold text-slate-500">Clients</th>
+        <th className="px-4 py-2.5 text-right text-xs font-semibold text-slate-500">Kg vendus</th>
+        <th className="px-4 py-2.5 text-right text-xs font-semibold text-slate-500">Encaissé</th>
+      </tr></thead>
+      <tbody className="divide-y divide-slate-50">
+        {ventesJour.map(v => (
+          <tr key={v.date} className="hover:bg-slate-50 cursor-pointer" onClick={() => setDate(v.date)}>
+            <td className="px-4 py-3 font-medium text-slate-700">{format(new Date(v.date+'T12:00:00'), 'EEE d MMM', { locale: fr })}</td>
+            <td className="px-4 py-3 text-right">{v.nb_clients}</td>
+            <td className="px-4 py-3 text-right">{parseFloat(v.kg_total).toFixed(1)} kg</td>
+            <td className="px-4 py-3 text-right text-water-700 font-medium">{parseInt(v.montant_encaisse).toLocaleString('fr')} F</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+
       {/* Demandes en attente — badge */}
       {data?.nb_demandes_attente > 0 && (
         <div className="card p-4 border-l-4 border-amber-400 bg-amber-50 flex items-center justify-between">
