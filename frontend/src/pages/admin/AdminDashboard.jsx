@@ -123,40 +123,77 @@ useEffect(() => {
 
 
       {/* Revenus */}
-<div>
-  <div className="flex items-center gap-3 mb-3 flex-wrap">
-    <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide flex-1">Revenus des ventes</p>
-    <select value={filtreStock} onChange={e => setFiltreStock(e.target.value)} className="input w-auto text-xs py-1">
+       <div>
+  {/* En-tête : Les éléments sont maintenant empilés en colonne avec flex-col */}
+  <div className="flex flex-col items-start gap-3 mb-4">
+    <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">
+      Revenus des ventes
+    </p>
+    
+    <select value={filtreStock} onChange={e => setFiltreStock(e.target.value)} className="input w-full md:w-auto text-xs py-1">
       <option value="">Tous les stocks</option>
       {stockTypes.map(t => <option key={t} value={t}>{t}</option>)}
     </select>
-    <select value={annee} onChange={e => setAnnee(e.target.value)} className="input w-auto text-xs py-1">
+    
+    <select value={annee} onChange={e => setAnnee(e.target.value)} className="input w-full md:w-auto text-xs py-1">
       {[0,1,2].map(i => {
         const y = new Date().getFullYear() - i;
         return <option key={y} value={y}>{y}</option>;
       })}
     </select>
   </div>
-  <div className="grid grid-cols-3 gap-3">
-    <StatCard icon="📆" label={`Argent du mois (${mois})`} value={`${parseInt(revenus?.mois||0).toLocaleString('fr')} F`} color="water" />
-    <StatCard icon="📦" label={filtreStock ? `Argent — ${filtreStock}` : 'Argent — sélectionner un stock'} value={`${parseInt(revenus?.stock||0).toLocaleString('fr')} F`} color="ocean" />
-    <StatCard icon="🗓️" label={`Argent de l'année ${annee}`} value={`${parseInt(revenus?.annee||0).toLocaleString('fr')} F`} color="purple" />
+
+  {/* Cartes : Passage de 3 colonnes à 1 colonne (empilées) */}
+  <div className="grid grid-cols-1 gap-3">
+    <StatCard 
+      icon="📆" 
+      label={`Argent du mois (${mois})`} 
+      value={`${parseInt(revenus?.mois||0).toLocaleString('fr')} F`} 
+      color="water" 
+    />
+    <StatCard 
+      icon="📦" 
+      label={filtreStock ? `Argent — ${filtreStock}` : 'Argent — sélectionner un stock'} 
+      value={`${parseInt(revenus?.stock||0).toLocaleString('fr')} F`} 
+      color="ocean" 
+    />
+    <StatCard 
+      icon="🗓️" 
+      label={`Argent de l'année ${annee}`} 
+      value={`${parseInt(revenus?.annee||0).toLocaleString('fr')} F`} 
+      color="purple" 
+    />
   </div>
 </div>
 
       {/* Encaissements */}
-      <div>
-        <div className="flex items-center gap-3 mb-3">
-          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide flex-1">Encaissements (versements au patron)</p>
-          <select value={mois} onChange={e => setMois(e.target.value)} className="input w-auto text-xs py-1">
-            {moisOptions.map(o => <option key={o.val} value={o.val}>{o.label}</option>)}
-          </select>
-        </div>
-        <div className="grid grid-cols-2 gap-3">
-          <StatCard icon="📅" label={`Encaissé en ${moisOptions.find(o=>o.val===mois)?.label||mois}`} value={`${parseInt(enc.mois||0).toLocaleString('fr')} FCFA`} color="purple" />
-          <StatCard icon="💰" label="Total encaissé (tous mois)" value={`${parseInt(enc.total||0).toLocaleString('fr')} FCFA`} color="purple" />
-        </div>
-      </div>
+<div>
+  {/* En-tête : Passage en colonne */}
+  <div className="flex flex-col items-start gap-3 mb-3">
+    <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">
+      Encaissements (versements au patron)
+    </p>
+    <select value={mois} onChange={e => setMois(e.target.value)} className="input w-full md:w-auto text-xs py-1">
+      {moisOptions.map(o => <option key={o.val} value={o.val}>{o.label}</option>)}
+    </select>
+  </div>
+  
+  {/* Cartes : Passage de 2 colonnes à 1 colonne */}
+  <div className="grid grid-cols-1 gap-3">
+    <StatCard 
+      icon="📅" 
+      label={`Encaissé en ${moisOptions.find(o=>o.val===mois)?.label||mois}`} 
+      value={`${parseInt(enc.mois||0).toLocaleString('fr')} FCFA`} 
+      color="purple" 
+    />
+    <StatCard 
+      icon="💰" 
+      label="Total encaissé (tous mois)" 
+      value={`${parseInt(enc.total||0).toLocaleString('fr')} FCFA`} 
+      color="purple" 
+    />
+  </div>
+</div>
       {/* Casse par employé */}
       <div className="card overflow-hidden">
         <div className="px-5 py-3 border-b border-slate-100">
