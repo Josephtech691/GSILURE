@@ -85,6 +85,8 @@ useEffect(() => {
   const t = data?.totaux_jour || {};
   const stock = data?.stock || {};
   const enc = data?.encaissements || {};
+   const cc = data?.caisse_cumulee || {};
+  const mm = data?.totaux_mois || {};
 
   return (
     <div className="space-y-6 max-w-5xl">
@@ -166,34 +168,40 @@ useEffect(() => {
   </div>
 </div>
 
-      {/* Encaissements */}
-<div>
-  {/* En-tête : Passage en colonne */}
-  <div className="flex flex-col items-start gap-3 mb-3">
-    <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">
-      Encaissements (versements au patron)
+{/* Argent toucher ce mois */}
+  <div className="bg-water-50 rounded-xl p-4">
+    <p className="text-xs font-semibold text-water-700 uppercase tracking-wide mb-1">
+      📅 Argent encaisser ce mois {moisOptions().find(o=>o.val===mois)?.label}
     </p>
-    <select value={mois} onChange={e => setMois(e.target.value)} className="input w-full md:w-auto text-xs py-1">
-      {moisOptions.map(o => <option key={o.val} value={o.val}>{o.label}</option>)}
-    </select>
+    <p className="text-2xl font-bold text-water-700">
+      {(
+        parseInt(mm.retraits||0) +
+        parseInt(mm.encaissements||0)
+      ).toLocaleString('fr')} FCFA
+    </p>
+    <div className="text-xs text-slate-500 mt-2 space-y-0.5">
+      {parseInt(mm.retraits||0) > 0 && <p>Retraits achat et autre : -{parseInt(mm.retraits||0).toLocaleString('fr')} F</p>}
+      {parseInt(mm.encaissements||0) > 0 && <p>Versé patron : -{parseInt(mm.encaissements||0).toLocaleString('fr')} F</p>}
+    </div>
   </div>
-  
-  {/* Cartes : Passage de 2 colonnes à 1 colonne */}
-  <div className="grid grid-cols-1 gap-3">
-    <StatCard 
-      icon="📅" 
-      label={`Encaissé en ${moisOptions.find(o=>o.val===mois)?.label||mois}`} 
-      value={`${parseInt(enc.mois||0).toLocaleString('fr')} FCFA`} 
-      color="purple" 
-    />
-    <StatCard 
-      icon="💰" 
-      label="Total encaissé (tous mois)" 
-      value={`${parseInt(enc.total||0).toLocaleString('fr')} FCFA`} 
-      color="purple" 
-    />
+
+ {/* 2. Total toucher*/}
+  <div className="bg-ocean-50 rounded-xl p-4">
+    <p className="text-xs font-semibold text-ocean-700 uppercase tracking-wide mb-1">
+      💼 Total retirer en {anneeOptions().find(o=>o.val===annee)?.label}
+    </p>
+    <p className="text-2xl font-bold text-ocean-700">
+      {(
+        parseInt(cc.retraits||0) +
+        parseInt(cc.encaissements||0)
+      ).toLocaleString('fr')} FCFA
+    </p>
+    <div className="text-xs text-slate-500 mt-2 space-y-0.5">
+      {parseInt(cc.retraits||0) > 0 && <p>Retraits : -{parseInt(cc.retraits||0).toLocaleString('fr')} F</p>}
+      {parseInt(cc.encaissements||0) > 0 && <p>Versé patron : -{parseInt(cc.encaissements||0).toLocaleString('fr')} F</p>}
+    </div>
   </div>
-</div>
+      
       {/* Casse par employé */}
       <div className="card overflow-hidden">
         <div className="px-5 py-3 border-b border-slate-100">
