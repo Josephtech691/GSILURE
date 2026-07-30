@@ -8,8 +8,35 @@ import Avatar from '../../components/ui/Avatar';
 const todayStr = () => new Date().toISOString().split('T')[0];
 const moisStr = () => new Date().toISOString().slice(0,7);
 
+// ✅ FIX : déclarées comme fonctions appelables
+const getMoisOptions = () => {
+  const opts = [];
+  for (let i = 0; i < 12; i++) {
+    const d = new Date(); d.setMonth(d.getMonth() - i);
+    opts.push({ val: d.toISOString().slice(0,7), label: format(d, 'MMMM yyyy', { locale: fr }) });
+  }
+  return opts;
+};
+
+// ✅ FIX : anneeOptions existe maintenant
+const getAnneeOptions = () => {
+  const opts = [];
+  for (let i = 0; i < 3; i++) {
+    const y = new Date().getFullYear() - i;
+    opts.push({ val: y, label: String(y) });
+  }
+  return opts;
+};
+
 function StatCard({ label, value, sub, color='slate', icon }) {
-  const cls = { ocean:'bg-ocean-50 text-ocean-700 border-ocean-100', water:'bg-water-50 text-water-700 border-water-100', amber:'bg-amber-50 text-amber-700 border-amber-100', red:'bg-red-50 text-red-700 border-red-100', purple:'bg-purple-50 text-purple-700 border-purple-100', slate:'bg-slate-50 text-slate-700 border-slate-100' };
+  const cls = {
+    ocean:'bg-ocean-50 text-ocean-700 border-ocean-100',
+    water:'bg-water-50 text-water-700 border-water-100',
+    amber:'bg-amber-50 text-amber-700 border-amber-100',
+    red:'bg-red-50 text-red-700 border-red-100',
+    purple:'bg-purple-50 text-purple-700 border-purple-100',
+    slate:'bg-slate-50 text-slate-700 border-slate-100'
+  };
   return (
     <div className={`stat-card border ${cls[color]}`}>
       <div className="flex items-start justify-between">
@@ -37,6 +64,10 @@ export default function AdminDashboard() {
   const [revenus, setRevenus] = useState(null);
   const [ventesJour, setVentesJour] = useState([]);
 
+  // Options calculées une seule fois
+  const moisOptions = getMoisOptions();
+  const anneeOptions = getAnneeOptions();
+
   useEffect(() => {
     api.get('/auth/employes').then(r => setEmployes(r.data)).catch(console.error);
   }, []);
@@ -52,46 +83,43 @@ export default function AdminDashboard() {
   }, [date, mois, filtreEmploye]);
 
   useEffect(() => {
-  api.get('/stocks/prix').then(r => {
-    const types = [...new Set(r.data.map(p => p.type_stock))];
-    setStockTypes(types);
-  }).catch(console.error);
-}, []);
+    api.get('/stocks/prix').then(r => {
+      const types = [...new Set((r.data || []).map(p => p.type_stock))];
+      setStockTypes(types);
+    }).catch(console.error);
+  }, []);
 
-useEffect(() => {
-  const params = new URLSearchParams({ mois, annee });
-  if (filtreStock) params.append('type_stock', filtreStock);
-  api.get(`/ventes/revenus?${params}`)
-    .then(r => setRevenus(r.data))
-    .catch(console.error);
-}, [mois, filtreStock, annee]);
+  useEffect(() => {
+    const params = new URLSearchParams({ mois, annee });
+    if (filtreStock) params.append('type_stock', filtreStock);
+    api.get(`/ventes/revenus?${params}`)
+      .then(r => setRevenus(r.data))
+      .catch(console.error);
+  }, [mois, filtreStock, annee]);
 
-useEffect(() => {
-  api.get(`/ventes/journalier?mois=${mois}`)
-    .then(r => setVentesJour(r.data))
-    .catch(console.error);
-}, [mois]);
+  useEffect(() => {
+    api.get(`/ventes/journalier?mois=${mois}`)
+      .then(r => setVentesJour(Array.isArray(r.data) ? r.data : []))
+      .catch(console.error);
+  }, [mois]);
 
-  // Options mois (12 derniers)
-  const moisOptions = [];
-  for (let i = 0; i < 12; i++) {
-    const d = new Date(); d.setMonth(d.getMonth() - i);
-    const val = d.toISOString().slice(0,7);
-    moisOptions.push({ val, label: format(d, 'MMMM yyyy', { locale: fr }) });
-  }
-
-  if (loading) return <div className="flex justify-center py-20"><div className="w-8 h-8 border-4 border-ocean-500 border-t-transparent rounded-full animate-spin" /></div>;
+  if (loading) return (
+    <div className="flex justify-center py-20">
+      <div className="w-8 h-8 border-4 border-ocean-500 border-t-transparent rounded-full animate-spin" />
+    </div>
+  );
 
   const t = data?.totaux_jour || {};
   const stock = data?.stock || {};
   const enc = data?.encaissements || {};
-   const cc = data?.caisse_cumulee || {};
+  const cc = data?.caisse_cumulee || {};
   const mm = data?.totaux_mois || {};
 
   return (
     <div className="space-y-6 max-w-5xl">
       <h1 className="text-2xl font-bold text-slate-800">Tableau de bord</h1>
-            {/* Stock */}
+
+      {/* Stock */}
       <div className="card p-5">
         <h2 className="text-sm font-semibold text-slate-600 mb-4">📦 État du stock global</h2>
         <div className="grid grid-cols-3 gap-4">
@@ -121,87 +149,57 @@ useEffect(() => {
         )}
       </div>
 
-
-
-
       {/* Revenus */}
-       <div>
-  {/* En-tête : Les éléments sont maintenant empilés en colonne avec flex-col */}
-  <div className="flex flex-col items-start gap-3 mb-4">
-    <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">
-      Revenus des ventes
-    </p>
-    
-    <select value={filtreStock} onChange={e => setFiltreStock(e.target.value)} className="input w-full md:w-auto text-xs py-1">
-      <option value="">Tous les stocks</option>
-      {stockTypes.map(t => <option key={t} value={t}>{t}</option>)}
-    </select>
-    
-    <select value={annee} onChange={e => setAnnee(e.target.value)} className="input w-full md:w-auto text-xs py-1">
-      {[0,1,2].map(i => {
-        const y = new Date().getFullYear() - i;
-        return <option key={y} value={y}>{y}</option>;
-      })}
-    </select>
-  </div>
+      <div>
+        <div className="flex flex-col items-start gap-3 mb-4">
+          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">
+            Revenus des ventes
+          </p>
+          <select value={filtreStock} onChange={e => setFiltreStock(e.target.value)} className="input w-full md:w-auto text-xs py-1">
+            <option value="">Tous les stocks</option>
+            {stockTypes.map(t => <option key={t} value={t}>{t}</option>)}
+          </select>
+          <select value={annee} onChange={e => setAnnee(e.target.value)} className="input w-full md:w-auto text-xs py-1">
+            {/* ✅ FIX : anneeOptions est maintenant un tableau */}
+            {anneeOptions.map(o => <option key={o.val} value={o.val}>{o.label}</option>)}
+          </select>
+        </div>
+        <div className="grid grid-cols-1 gap-3">
+          <StatCard icon="📆" label={`Argent du mois (${mois})`} value={`${parseInt(revenus?.mois||0).toLocaleString('fr')} F`} color="water" />
+          <StatCard icon="📦" label={filtreStock ? `Argent — ${filtreStock}` : 'Argent — sélectionner un stock'} value={`${parseInt(revenus?.stock||0).toLocaleString('fr')} F`} color="ocean" />
+          <StatCard icon="🗓️" label={`Argent de l'année ${annee}`} value={`${parseInt(revenus?.annee||0).toLocaleString('fr')} F`} color="purple" />
+        </div>
+      </div>
 
-  {/* Cartes : Passage de 3 colonnes à 1 colonne (empilées) */}
-  <div className="grid grid-cols-1 gap-3">
-    <StatCard 
-      icon="📆" 
-      label={`Argent du mois (${mois})`} 
-      value={`${parseInt(revenus?.mois||0).toLocaleString('fr')} F`} 
-      color="water" 
-    />
-    <StatCard 
-      icon="📦" 
-      label={filtreStock ? `Argent — ${filtreStock}` : 'Argent — sélectionner un stock'} 
-      value={`${parseInt(revenus?.stock||0).toLocaleString('fr')} F`} 
-      color="ocean" 
-    />
-    <StatCard 
-      icon="🗓️" 
-      label={`Argent de l'année ${annee}`} 
-      value={`${parseInt(revenus?.annee||0).toLocaleString('fr')} F`} 
-      color="purple" 
-    />
-  </div>
-</div>
+      {/* Argent encaissé ce mois */}
+      <div className="bg-water-50 rounded-xl p-4">
+        <p className="text-xs font-semibold text-water-700 uppercase tracking-wide mb-1">
+          📅 Argent encaissé ce mois — {moisOptions.find(o => o.val === mois)?.label}
+        </p>
+        <p className="text-2xl font-bold text-water-700">
+          {(parseInt(mm.retraits||0) + parseInt(mm.encaissements||0)).toLocaleString('fr')} FCFA
+        </p>
+        <div className="text-xs text-slate-500 mt-2 space-y-0.5">
+          {parseInt(mm.retraits||0) > 0 && <p>Retraits achat et autre : -{parseInt(mm.retraits||0).toLocaleString('fr')} F</p>}
+          {parseInt(mm.encaissements||0) > 0 && <p>Versé patron : -{parseInt(mm.encaissements||0).toLocaleString('fr')} F</p>}
+        </div>
+      </div>
 
-{/* Argent toucher ce mois */}
-  <div className="bg-water-50 rounded-xl p-4">
-    <p className="text-xs font-semibold text-water-700 uppercase tracking-wide mb-1">
-      📅 Argent encaisser ce mois {moisOptions().find(o=>o.val===mois)?.label}
-    </p>
-    <p className="text-2xl font-bold text-water-700">
-      {(
-        parseInt(mm.retraits||0) +
-        parseInt(mm.encaissements||0)
-      ).toLocaleString('fr')} FCFA
-    </p>
-    <div className="text-xs text-slate-500 mt-2 space-y-0.5">
-      {parseInt(mm.retraits||0) > 0 && <p>Retraits achat et autre : -{parseInt(mm.retraits||0).toLocaleString('fr')} F</p>}
-      {parseInt(mm.encaissements||0) > 0 && <p>Versé patron : -{parseInt(mm.encaissements||0).toLocaleString('fr')} F</p>}
-    </div>
-  </div>
+      {/* Total retiré cette année */}
+      <div className="bg-ocean-50 rounded-xl p-4">
+        <p className="text-xs font-semibold text-ocean-700 uppercase tracking-wide mb-1">
+          {/* ✅ FIX : anneeOptions.find() au lieu de anneeOptions().find() */}
+          💼 Total retiré en {anneeOptions.find(o => o.val === Number(annee))?.label || annee}
+        </p>
+        <p className="text-2xl font-bold text-ocean-700">
+          {(parseInt(cc.retraits||0) + parseInt(cc.encaissements||0)).toLocaleString('fr')} FCFA
+        </p>
+        <div className="text-xs text-slate-500 mt-2 space-y-0.5">
+          {parseInt(cc.retraits||0) > 0 && <p>Retraits : -{parseInt(cc.retraits||0).toLocaleString('fr')} F</p>}
+          {parseInt(cc.encaissements||0) > 0 && <p>Versé patron : -{parseInt(cc.encaissements||0).toLocaleString('fr')} F</p>}
+        </div>
+      </div>
 
- {/* 2. Total toucher*/}
-  <div className="bg-ocean-50 rounded-xl p-4">
-    <p className="text-xs font-semibold text-ocean-700 uppercase tracking-wide mb-1">
-      💼 Total retirer en {anneeOptions().find(o=>o.val===annee)?.label}
-    </p>
-    <p className="text-2xl font-bold text-ocean-700">
-      {(
-        parseInt(cc.retraits||0) +
-        parseInt(cc.encaissements||0)
-      ).toLocaleString('fr')} FCFA
-    </p>
-    <div className="text-xs text-slate-500 mt-2 space-y-0.5">
-      {parseInt(cc.retraits||0) > 0 && <p>Retraits : -{parseInt(cc.retraits||0).toLocaleString('fr')} F</p>}
-      {parseInt(cc.encaissements||0) > 0 && <p>Versé patron : -{parseInt(cc.encaissements||0).toLocaleString('fr')} F</p>}
-    </div>
-  </div>
-      
       {/* Casse par employé */}
       <div className="card overflow-hidden">
         <div className="px-5 py-3 border-b border-slate-100">
@@ -218,7 +216,9 @@ useEffect(() => {
                   <p className="text-sm font-medium text-slate-700">{emp.employe_nom}</p>
                   <p className="text-xs text-slate-400">
                     Théorique : {parseInt(emp.total_valeur_theorique||0).toLocaleString('fr')} F
-                    {parseFloat(emp.total_verse_patron||0) > 0 && <span className="ml-2 text-purple-500">· Versé patron : {parseInt(emp.total_verse_patron).toLocaleString('fr')} F</span>}
+                    {parseFloat(emp.total_verse_patron||0) > 0 && (
+                      <span className="ml-2 text-purple-500">· Versé patron : {parseInt(emp.total_verse_patron).toLocaleString('fr')} F</span>
+                    )}
                   </p>
                 </div>
                 <div className="text-right">
@@ -231,16 +231,9 @@ useEffect(() => {
         </div>
       </div>
 
-      
-
-      {/* En-tête + filtres */}
+      {/* En-tête filtres journée */}
       <div className="flex items-start justify-between flex-wrap gap-3">
         <div>
-          
-
-
-          {/*donnees du jour*/}
-
           <p className="text-sm text-slate-500">{format(new Date(date+'T12:00:00'), 'EEEE d MMMM yyyy', { locale: fr })}</p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -254,7 +247,9 @@ useEffect(() => {
 
       {/* Stats du jour */}
       <div>
-        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3">Journée du {format(new Date(date+'T12:00:00'), 'd MMM', { locale: fr })}</p>
+        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3">
+          Journée du {format(new Date(date+'T12:00:00'), 'd MMM', { locale: fr })}
+        </p>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           <StatCard icon="⚖️" label="Kg vendus" value={`${(t.kg_vendus||0).toFixed(1)} kg`} color="ocean" />
           <StatCard icon="💵" label="CA encaissé" value={`${parseInt(t.ca_total||0).toLocaleString('fr')} F`} color="water" />
@@ -263,24 +258,24 @@ useEffect(() => {
         </div>
       </div>
 
-
-
-
-
       {/* Stats par employé */}
       <div className="card overflow-hidden">
         <div className="px-5 py-3 border-b border-slate-100">
-          <h2 className="text-sm font-semibold text-slate-600">👥 Par employé — {format(new Date(date+'T12:00:00'), 'd MMMM', { locale: fr })}</h2>
+          <h2 className="text-sm font-semibold text-slate-600">
+            👥 Par employé — {format(new Date(date+'T12:00:00'), 'd MMMM', { locale: fr })}
+          </h2>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="bg-slate-50"><tr>
-              <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-500">Employé</th>
-              <th className="px-4 py-2.5 text-right text-xs font-semibold text-slate-500">Kg vendus</th>
-              <th className="px-4 py-2.5 text-right text-xs font-semibold text-slate-500">Encaissé</th>
-              <th className="px-4 py-2.5 text-right text-xs font-semibold text-slate-500">Clients</th>
-              <th className="px-4 py-2.5 text-right text-xs font-semibold text-slate-500">Reste</th>
-            </tr></thead>
+            <thead className="bg-slate-50">
+              <tr>
+                <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-500">Employé</th>
+                <th className="px-4 py-2.5 text-right text-xs font-semibold text-slate-500">Kg vendus</th>
+                <th className="px-4 py-2.5 text-right text-xs font-semibold text-slate-500">Encaissé</th>
+                <th className="px-4 py-2.5 text-right text-xs font-semibold text-slate-500">Clients</th>
+                <th className="px-4 py-2.5 text-right text-xs font-semibold text-slate-500">Reste</th>
+              </tr>
+            </thead>
             <tbody className="divide-y divide-slate-50">
               {(data?.stats_par_employe||[]).map(emp => (
                 <tr key={emp.employe_id} className="hover:bg-slate-50">
@@ -298,113 +293,115 @@ useEffect(() => {
         </div>
       </div>
 
-
-           {/* ═══ CLIENTS DU JOUR — "Client N" + commentaires ═══ */}
-{(data?.clients_du_jour||[]).length > 0 && (
-  <div className="card overflow-hidden">
-    <div className="px-5 py-3 border-b border-slate-100 flex items-center justify-between">
-      <h2 className="text-sm font-semibold text-slate-600">
-        🛒 Clients du {format(new Date(date+'T12:00:00'), 'd MMMM', { locale: fr })}
-      </h2>
-      <span className="text-xs bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full">
-        {data.clients_du_jour.length} client{data.clients_du_jour.length>1?'s':''}
-      </span>
-    </div>
-
-    <div className="divide-y divide-slate-50">
-      {data.clients_du_jour.map(c => {
-        const theorique = parseFloat(c.kg_achetes)*2500;
-        const reste = theorique - parseFloat(c.montant_recu);
-        return (
-          <div key={c.id} className="px-5 py-3 hover:bg-slate-50 transition">
-            {/* Ligne principale */}
-            <div className="flex items-center gap-2 flex-wrap">
-              {/* "Client N" en badge — plus "C" */}
-              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full bg-ocean-100 text-ocean-700 text-xs font-bold whitespace-nowrap shrink-0">
-                Client {c.numero_client}
-              </span>
-              <span className="text-xs font-medium text-slate-600 bg-slate-100 px-2 py-0.5 rounded shrink-0">
-                {c.employe_nom}
-              </span>
-              <span className="font-bold text-slate-700 text-sm">{parseFloat(c.kg_achetes).toFixed(1)} kg</span>
-              <span className="text-water-700 font-medium text-sm">{parseInt(c.montant_recu).toLocaleString('fr')} FCFA</span>
-              <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
-                c.reste_annule ? 'bg-blue-100 text-blue-700'
-                : reste > 0 ? 'bg-red-100 text-red-700'
-                : 'bg-green-100 text-green-700'
-              }`}>
-                {c.reste_annule ? '✓ Reste annulé'
-                  : reste > 0 ? `Reste : ${parseInt(reste).toLocaleString('fr')} F`
-                  : '✓ Soldé'}
-              </span>
-              <span className="text-xs text-slate-400 ml-auto shrink-0">{c.heure_approx?.slice(0,5)}</span>
-            </div>
-
-            {/* Commentaire employé — affiché seulement si présent */}
-            {c.commentaire && (
-              <div className="mt-2 flex items-start gap-1.5 ml-1">
-                <span className="text-slate-300 text-xs shrink-0 mt-0.5">💬</span>
-                <p className="text-xs text-slate-500 italic bg-slate-50 border border-slate-100 px-2.5 py-1.5 rounded-lg leading-relaxed flex-1">
-                  {c.commentaire}
-                </p>
-              </div>
-            )}
+      {/* Clients du jour */}
+      {(data?.clients_du_jour||[]).length > 0 && (
+        <div className="card overflow-hidden">
+          <div className="px-5 py-3 border-b border-slate-100 flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-slate-600">
+              🛒 Clients du {format(new Date(date+'T12:00:00'), 'd MMMM', { locale: fr })}
+            </h2>
+            <span className="text-xs bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full">
+              {data.clients_du_jour.length} client{data.clients_du_jour.length>1?'s':''}
+            </span>
           </div>
-        );
-      })}
-    </div>
 
-    {/* Totaux bas */}
-    <div className="px-5 py-3 bg-slate-50 border-t border-slate-200 flex items-center gap-4 flex-wrap">
-      <span className="text-xs text-slate-500 font-semibold">Totaux :</span>
-      <span className="font-bold text-slate-700 text-sm">
-        {data.clients_du_jour.reduce((s,c)=>s+parseFloat(c.kg_achetes||0),0).toFixed(1)} kg
-      </span>
-      <span className="font-bold text-water-700 text-sm">
-        {data.clients_du_jour.reduce((s,c)=>s+parseFloat(c.montant_recu||0),0).toLocaleString('fr')} FCFA encaissés
-      </span>
-      <span className="text-xs font-medium text-red-500">
-        {data.clients_du_jour.reduce((s,c)=>{
-          const r=parseFloat(c.kg_achetes||0)*2500-parseFloat(c.montant_recu||0);
-          return s+(c.reste_annule?0:Math.max(0,r));
-        },0).toLocaleString('fr')} FCFA restants
-      </span>
-    </div>
-  </div>
-)}
+          <div className="divide-y divide-slate-50">
+            {data.clients_du_jour.map(c => {
+              const theorique = parseFloat(c.kg_achetes)*2500;
+              const reste = theorique - parseFloat(c.montant_recu);
+              return (
+                <div key={c.id} className="px-5 py-3 hover:bg-slate-50 transition">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full bg-ocean-100 text-ocean-700 text-xs font-bold whitespace-nowrap shrink-0">
+                      Client {c.numero_client}
+                    </span>
+                    <span className="text-xs font-medium text-slate-600 bg-slate-100 px-2 py-0.5 rounded shrink-0">
+                      {c.employe_nom}
+                    </span>
+                    <span className="font-bold text-slate-700 text-sm">{parseFloat(c.kg_achetes).toFixed(1)} kg</span>
+                    <span className="text-water-700 font-medium text-sm">{parseInt(c.montant_recu).toLocaleString('fr')} FCFA</span>
+                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+                      c.reste_annule ? 'bg-blue-100 text-blue-700'
+                      : reste > 0 ? 'bg-red-100 text-red-700'
+                      : 'bg-green-100 text-green-700'
+                    }`}>
+                      {c.reste_annule ? '✓ Reste annulé'
+                        : reste > 0 ? `Reste : ${parseInt(reste).toLocaleString('fr')} F`
+                        : '✓ Soldé'}
+                    </span>
+                    <span className="text-xs text-slate-400 ml-auto shrink-0">{c.heure_approx?.slice(0,5)}</span>
+                  </div>
+                  {c.commentaire && (
+                    <div className="mt-2 flex items-start gap-1.5 ml-1">
+                      <span className="text-slate-300 text-xs shrink-0 mt-0.5">💬</span>
+                      <p className="text-xs text-slate-500 italic bg-slate-50 border border-slate-100 px-2.5 py-1.5 rounded-lg leading-relaxed flex-1">
+                        {c.commentaire}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
 
-{/* Tableau des ventes journalières */}
-<div className="card overflow-hidden">
-  <div className="px-5 py-3 border-b border-slate-100">
-    <h2 className="text-sm font-semibold text-slate-600">📊 Les ventes du mois de — {mois}</h2>
-  </div>
-  <div className="overflow-x-auto">
-    <table className="w-full text-sm">
-      <thead className="bg-slate-50"><tr>
-        <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-500">Date</th>
-        <th className="px-4 py-2.5 text-right text-xs font-semibold text-slate-500">Clients</th>
-        <th className="px-4 py-2.5 text-right text-xs font-semibold text-slate-500">Kg vendus</th>
-        <th className="px-4 py-2.5 text-right text-xs font-semibold text-slate-500">Encaissé</th>
-      </tr></thead>
-      <tbody className="divide-y divide-slate-50">
-        {ventesJour.map(v => (
-          <tr key={v.date} className="hover:bg-slate-50 cursor-pointer" onClick={() => setDate(v.date)}>
-            <td className="px-4 py-3 font-medium text-slate-700">{format(new Date(v.date+'T12:00:00'), 'EEE d MMM', { locale: fr })}</td>
-            <td className="px-4 py-3 text-right">{v.nb_clients}</td>
-            <td className="px-4 py-3 text-right">{parseFloat(v.kg_total).toFixed(1)} kg</td>
-            <td className="px-4 py-3 text-right text-water-700 font-medium">{parseInt(v.montant_encaisse).toLocaleString('fr')} F</td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
-  </div>
-</div>
+          <div className="px-5 py-3 bg-slate-50 border-t border-slate-200 flex items-center gap-4 flex-wrap">
+            <span className="text-xs text-slate-500 font-semibold">Totaux :</span>
+            <span className="font-bold text-slate-700 text-sm">
+              {data.clients_du_jour.reduce((s,c)=>s+parseFloat(c.kg_achetes||0),0).toFixed(1)} kg
+            </span>
+            <span className="font-bold text-water-700 text-sm">
+              {data.clients_du_jour.reduce((s,c)=>s+parseFloat(c.montant_recu||0),0).toLocaleString('fr')} FCFA encaissés
+            </span>
+            <span className="text-xs font-medium text-red-500">
+              {data.clients_du_jour.reduce((s,c)=>{
+                const r=parseFloat(c.kg_achetes||0)*2500-parseFloat(c.montant_recu||0);
+                return s+(c.reste_annule?0:Math.max(0,r));
+              },0).toLocaleString('fr')} FCFA restants
+            </span>
+          </div>
+        </div>
+      )}
 
+      {/* Tableau ventes journalières */}
+      <div className="card overflow-hidden">
+        <div className="px-5 py-3 border-b border-slate-100">
+          <h2 className="text-sm font-semibold text-slate-600">📊 Les ventes du mois — {mois}</h2>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-slate-50">
+              <tr>
+                <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-500">Date</th>
+                <th className="px-4 py-2.5 text-right text-xs font-semibold text-slate-500">Clients</th>
+                <th className="px-4 py-2.5 text-right text-xs font-semibold text-slate-500">Kg vendus</th>
+                <th className="px-4 py-2.5 text-right text-xs font-semibold text-slate-500">Encaissé</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-50">
+              {ventesJour.map(v => (
+                <tr key={v.date} className="hover:bg-slate-50 cursor-pointer" onClick={() => setDate(v.date)}>
+                  <td className="px-4 py-3 font-medium text-slate-700">
+                    {(() => { try { return format(new Date(v.date+'T12:00:00'), 'EEE d MMM', { locale: fr }); } catch { return v.date; } })()}
+                  </td>
+                  <td className="px-4 py-3 text-right">{v.nb_clients}</td>
+                  <td className="px-4 py-3 text-right">{parseFloat(v.kg_total||0).toFixed(1)} kg</td>
+                  <td className="px-4 py-3 text-right text-water-700 font-medium">{parseInt(v.montant_encaisse||0).toLocaleString('fr')} F</td>
+                </tr>
+              ))}
+              {ventesJour.length === 0 && (
+                <tr><td colSpan={4} className="text-center py-6 text-slate-400 text-sm">Aucune vente ce mois</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
 
-      {/* Demandes en attente — badge */}
+      {/* Demandes en attente */}
       {data?.nb_demandes_attente > 0 && (
         <div className="card p-4 border-l-4 border-amber-400 bg-amber-50 flex items-center justify-between">
-          <span className="text-sm text-amber-800 font-medium">🔔 {data.nb_demandes_attente} demande{data.nb_demandes_attente > 1 ? 's' : ''} en attente</span>
+          <span className="text-sm text-amber-800 font-medium">
+            🔔 {data.nb_demandes_attente} demande{data.nb_demandes_attente > 1 ? 's' : ''} en attente
+          </span>
           <a href="/admin/demandes" className="btn-primary text-xs py-1.5">Voir les demandes</a>
         </div>
       )}
