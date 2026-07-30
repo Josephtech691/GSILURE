@@ -174,7 +174,7 @@ export default function AdminDashboard() {
       {/* Argent encaissé ce mois */}
       <div className="bg-water-50 rounded-xl p-4">
         <p className="text-xs font-semibold text-water-700 uppercase tracking-wide mb-1">
-          📅 Argent encaissé ce mois — {moisOptions.find(o => o.val === mois)?.label}
+          📅 Argent retiré ce  — {moisOptions.find(o => o.val === mois)?.label}
         </p>
         <p className="text-2xl font-bold text-water-700">
           {(parseInt(mm.retraits||0) + parseInt(mm.encaissements||0)).toLocaleString('fr')} FCFA

@@ -473,6 +473,36 @@ const dashboard = async (req, res) => {
       `SELECT COUNT(*) AS nb FROM demandes WHERE statut = 'en_attente'`
     );
 
+    const totauxMois = await db.query(`
+SELECT
+    COALESCE(SUM(CASE WHEN type='retrait' THEN montant END),0) AS retraits,
+    COALESCE(SUM(CASE WHEN type='ajout' THEN montant END),0) AS ajouts
+FROM mouvements_caisse
+WHERE statut='approuvee'
+AND mois=$1
+`, [moisFiltre]);
+
+const encaissementsMois = await db.query(`
+SELECT COALESCE(SUM(montant),0) AS encaissements
+FROM encaissements
+WHERE statut='approuvee'
+AND mois=$1
+`, [moisFiltre]);
+
+const retraitsTotal = await db.query(`
+SELECT
+    COALESCE(SUM(CASE WHEN type='retrait' THEN montant END),0) AS retraits,
+    COALESCE(SUM(CASE WHEN type='ajout' THEN montant END),0) AS ajouts
+FROM mouvements_caisse
+WHERE statut='approuvee'
+`);
+
+const encaissementsTotal = await db.query(`
+SELECT COALESCE(SUM(montant),0) AS encaissements
+FROM encaissements
+WHERE statut='approuvee'
+`);
+
     res.json({
       date: dateFiltre,
       mois: moisFiltre,
@@ -484,6 +514,17 @@ const dashboard = async (req, res) => {
         total: parseFloat(encaissTotal.rows[0].total),
         mois_filtre: moisFiltre,
       },
+      totaux_mois: {
+    retraits: parseFloat(totauxMois.rows[0].retraits),
+    ajouts: parseFloat(totauxMois.rows[0].ajouts),
+    encaissements: parseFloat(encaissementsMois.rows[0].encaissements),
+},
+
+caisse_cumulee: {
+    retraits: parseFloat(retraitsTotal.rows[0].retraits),
+    ajouts: parseFloat(retraitsTotal.rows[0].ajouts),
+    encaissements: parseFloat(encaissementsTotal.rows[0].encaissements),
+},
       stock: {
         total_kg_achete: parseFloat(stock.rows[0].total_achete),
         total_kg_vendu: parseFloat(stock.rows[0].total_vendu),
