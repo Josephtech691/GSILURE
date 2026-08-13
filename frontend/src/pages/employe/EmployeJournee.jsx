@@ -165,6 +165,11 @@ export default function EmployeJournee() {
   }).catch(console.error);
 }, []);
   const isToday = date === todayStr();
+  // ── États perte ─────────────────────────────────────────────
+  const [showPerteForm, setShowPerteForm] = useState(false);
+  const [perteForm, setPerteForm] = useState({ type_stock:"", poids_categorie:"", bac_numero:"", kg_perdus:"", commentaire:"" });
+  const [perteLoading, setPerteLoading] = useState(false);
+
 
   const charger = useCallback(async () => {
     setLoading(true);
@@ -245,6 +250,22 @@ export default function EmployeJournee() {
   };
 
   const canEdit = isToday || journee?.modification_autorisee;
+
+  const declarerPerte = async (e) => {
+    e.preventDefault();
+    if (!perteForm.type_stock || !perteForm.kg_perdus) return;
+    setPerteLoading(true);
+    try {
+      await api.post("/pertes", { ...perteForm, type_perte: "mort" });
+      const socket = getSocket();
+      socket?.connected && socket.emit("demande-soumise", { type: "perte_stock", message: `Perte : ${perteForm.kg_perdus} kg de ${perteForm.type_stock}` });
+      setShowPerteForm(false);
+      setPerteForm({ type_stock:"", poids_categorie:"", bac_numero:"", kg_perdus:"", commentaire:"" });
+      show("Perte declaree OK", "success");
+    } catch (err) { show(err.response?.data?.message || "Erreur", "error"); }
+    finally { setPerteLoading(false); }
+  };
+
 
   return (
     <div className="max-w-2xl mx-auto space-y-4">
@@ -367,10 +388,91 @@ export default function EmployeJournee() {
           )}
 
           {canEdit && !nouveauClient && (
-            <button onClick={() => setNouveauClient({ kg_achetes:'', montant_recu:'', heure_approx: new Date().toTimeString().slice(0,5), commentaire:'' })}
-              className="btn-primary w-full py-3 justify-center text-base">
-              + Nouveau Client
-            </button>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                onClick={() => setNouveauClient({ kg_achetes:'', montant_recu:'', heure_approx: new Date().toTimeString().slice(0,5), commentaire:'' })}
+                className="btn-primary py-3 justify-center text-sm">
+                + Nouveau Client
+              </button>
+              <button
+                onClick={() => setShowPerteForm(!showPerteForm)}
+                className={`flex items-center justify-center gap-2 py-3 text-sm font-medium rounded-lg border-2 transition ${
+                  showPerteForm ? 'border-red-500 bg-red-100 text-red-800' : 'border-red-300 text-red-700 bg-red-50 hover:bg-red-100'
+                }`}>
+                💀 Poisson mort / perte
+              </button>
+            </div>
+          )}
+
+          {/* ─── Formulaire déclaration perte ─── */}
+          {showPerteForm && (
+            <div className="card p-4 border-l-4 border-red-400">
+              <div className="flex justify-between items-center mb-3">
+                <span className="font-semibold text-sm text-red-700">💀 Déclarer une perte / poisson mort</span>
+                <button onClick={() => setShowPerteForm(false)} className="text-xs text-slate-400 hover:text-slate-600">✕ Fermer</button>
+              </div>
+              <form onSubmit={declarerPerte} className="space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-slate-500 mb-1">Type de poisson *</label>
+                    <select required value={perteForm.type_stock}
+                      onChange={e => setPerteForm({...perteForm, type_stock: e.target.value})}
+                      className="input">
+                      <option value="">— Sélectionner —</option>
+                      {stockTypes.map(t => <option key={t} value={t}>{t}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-500 mb-1">Catégorie</label>
+                    <select value={perteForm.poids_categorie}
+                      onChange={e => setPerteForm({...perteForm, poids_categorie: e.target.value})}
+                      className="input">
+                      <option value="">— Toutes —</option>
+                      {['alevins','200g','400g','500g','600g','800g','1kg+'].map(c =>
+                        <option key={c} value={c}>{c}</option>
+                      )}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-500 mb-1">Bac concerné</label>
+                    <select value={perteForm.bac_numero}
+                      onChange={e => setPerteForm({...perteForm, bac_numero: e.target.value})}
+                      className="input">
+                      <option value="">— Aucun bac —</option>
+                      {[1,2,3,4,5,6,7].map(n => <option key={n} value={n}>Bac {n}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-500 mb-1">Kg perdus *</label>
+                    <input type="number" step="0.01" min="0.01" required
+                      value={perteForm.kg_perdus}
+                      onChange={e => setPerteForm({...perteForm, kg_perdus: e.target.value})}
+                      className="input" placeholder="Ex: 0.5" />
+                  </div>
+                  <div className="col-span-2">
+                    <label className="block text-xs font-medium text-slate-500 mb-1">Commentaire</label>
+                    <input type="text" value={perteForm.commentaire}
+                      onChange={e => setPerteForm({...perteForm, commentaire: e.target.value})}
+                      className="input"
+                      placeholder="Ex: 2 silures morts cette nuit dans le bac 3…" />
+                  </div>
+                </div>
+                {perteForm.kg_perdus && parseFloat(perteForm.kg_perdus) > 0 && (
+                  <div className="px-3 py-2 bg-red-50 rounded-lg text-xs text-red-700 border border-red-100">
+                    Valeur perdue estimée : <strong>{(parseFloat(perteForm.kg_perdus)*2500).toLocaleString('fr')} FCFA</strong>
+                  </div>
+                )}
+                <div className="flex gap-2">
+                  <button type="submit" disabled={perteLoading}
+                    className="flex-1 py-2 text-sm font-medium rounded-lg bg-red-600 text-white hover:bg-red-700 transition disabled:opacity-50">
+                    {perteLoading ? 'Envoi…' : '⚠️ Déclarer cette perte'}
+                  </button>
+                  <button type="button" onClick={() => setShowPerteForm(false)} className="btn-secondary text-sm py-2">
+                    Annuler
+                  </button>
+                </div>
+              </form>
+            </div>
           )}
 
           {journee && <Chat date={date} />}

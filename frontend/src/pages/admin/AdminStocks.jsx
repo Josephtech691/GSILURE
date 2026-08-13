@@ -7,68 +7,80 @@ import { useToast, ToastDisplay } from '../../components/ui/Toast';
 const formatDateSafe = (val, motif = 'd MMM yy') => {
   if (!val) return '—';
   try {
-    const dateOnly = String(val).split('T')[0]; // garde uniquement "YYYY-MM-DD"
+    const dateOnly = String(val).split('T')[0];
     const d = new Date(dateOnly + 'T12:00:00');
     if (isNaN(d.getTime())) return '—';
     return format(d, motif, { locale: fr });
-  } catch {
-    return '—';
-  }
+  } catch { return '—'; }
 };
 
-const TYPES_POISSONS = ['silure', 'tilapia', 'carpe', 'autre'];
-const CATEGORIES_POIDS = ['alevins', '200g', '400g', '500g', '600g', '800g', '1kg+'];
-const COULEURS_BAC = ['bg-blue-100 text-blue-700','bg-green-100 text-green-700','bg-purple-100 text-purple-700','bg-amber-100 text-amber-700','bg-red-100 text-red-700','bg-teal-100 text-teal-700','bg-indigo-100 text-indigo-700'];
+const TYPES_POISSONS    = ['silure', 'tilapia', 'carpe', 'autre'];
+const CATEGORIES_POIDS  = ['alevins', '200g', '400g', '500g', '600g', '800g', '1kg+'];
+const COULEURS_BAC      = ['bg-blue-100 text-blue-700','bg-green-100 text-green-700','bg-purple-100 text-purple-700','bg-amber-100 text-amber-700','bg-red-100 text-red-700','bg-teal-100 text-teal-700','bg-indigo-100 text-indigo-700'];
 
 export default function AdminStocks() {
   const { toast, show } = useToast();
-  const [activeTab, setActiveTab] = useState('bacs');
-  const [bacsData, setBacsData] = useState(null);
-  const [depots, setDepots] = useState([]);
-  const [prix, setPrix] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab]   = useState('bacs');
+  const [bacsData, setBacsData]     = useState(null);
+  const [depots, setDepots]         = useState([]);
+  const [prix, setPrix]             = useState([]);
+  const [loading, setLoading]       = useState(true);
 
-  const [depotForm, setDepotForm] = useState({ quantite_kg:'', type_stock:'silure', poids_categorie:'', bac_numero:'', date_depot:'', note:'' });
+  const [depotForm, setDepotForm]   = useState({ quantite_kg:'', type_stock:'silure', poids_categorie:'', bac_numero:'', date_depot:'', note:'' });
   const [depotLoading, setDepotLoading] = useState(false);
 
-  const [prixForm, setPrixForm] = useState({ type_stock:'silure', poids_categorie:'', nouveau_prix:'' });
-  const [prixLoading, setPrixLoading] = useState(false);
+  const [prixForm, setPrixForm]     = useState({ type_stock:'silure', poids_categorie:'', nouveau_prix:'' });
+  const [prixLoading, setPrixLoading]   = useState(false);
+
+  // ── Pertes ──────────────────────────────────────────────────
+  const [perteForm, setPerteForm]   = useState({ type_perte:'perte_poids', type_stock:'silure', poids_categorie:'', bac_numero:'', kg_perdus:'', commentaire:'' });
+  const [perteLoading, setPerteLoading] = useState(false);
+  const [pertes, setPertes]         = useState([]);
+  const [pertesLoading, setPertesLoading] = useState(false);
 
   const charger = async () => {
     try {
       const [bacsRes, depotsRes, prixRes] = await Promise.all([
         api.get('/stocks/bacs').catch(() => ({ data: { bacs: [], par_type: [], totaux: {} } })),
-        api.get('/stocks').catch(() => ({ data: [] })),
-        api.get('/stocks/prix').catch(() => ({ data: [] })),
+        api.get('/stocks').catch(()        => ({ data: [] })),
+        api.get('/stocks/prix').catch(()   => ({ data: [] })),
       ]);
-      setBacsData(bacsRes.data || { bacs: [], par_type: [], totaux: {} });
+      setBacsData(bacsRes.data   || { bacs: [], par_type: [], totaux: {} });
       setDepots(Array.isArray(depotsRes.data) ? depotsRes.data : []);
-      setPrix(Array.isArray(prixRes.data) ? prixRes.data : []);
+      setPrix(Array.isArray(prixRes.data)     ? prixRes.data   : []);
     } catch (err) {
       console.error('Erreur chargement stocks:', err);
       setBacsData({ bacs: [], par_type: [], totaux: {} });
-      setDepots([]);
-      setPrix([]);
+      setDepots([]); setPrix([]);
     } finally { setLoading(false); }
+  };
+
+  const chargerPertes = async () => {
+    setPertesLoading(true);
+    try {
+      const r = await api.get('/pertes');
+      setPertes(Array.isArray(r.data) ? r.data : []);
+    } catch { setPertes([]); }
+    finally { setPertesLoading(false); }
   };
 
   useEffect(() => { charger(); }, []);
 
+  // Charger les pertes uniquement quand l'onglet est actif
+  useEffect(() => { if (activeTab === 'pertes') chargerPertes(); }, [activeTab]);
+
   const ajouterDepot = async (e) => {
-    e.preventDefault();
-    setDepotLoading(true);
+    e.preventDefault(); setDepotLoading(true);
     try {
       await api.post('/stocks', depotForm);
       setDepotForm({ quantite_kg:'', type_stock:'silure', poids_categorie:'', bac_numero:'', date_depot:'', note:'' });
-      await charger();
-      show('Dépôt enregistré ✓', 'success');
+      await charger(); show('Dépôt enregistré ✓', 'success');
     } catch (err) { show(err.response?.data?.message || 'Erreur', 'error'); }
     finally { setDepotLoading(false); }
   };
 
   const modifierPrix = async (e) => {
-    e.preventDefault();
-    setPrixLoading(true);
+    e.preventDefault(); setPrixLoading(true);
     try {
       const res = await api.post('/stocks/prix', prixForm);
       await charger();
@@ -84,18 +96,40 @@ export default function AdminStocks() {
     catch { show('Erreur', 'error'); }
   };
 
+  const declarerPerte = async (e) => {
+    e.preventDefault(); setPerteLoading(true);
+    try {
+      const res = await api.post('/pertes', perteForm);
+      setPerteForm({ type_perte:'perte_poids', type_stock:'silure', poids_categorie:'', bac_numero:'', kg_perdus:'', commentaire:'' });
+      await chargerPertes();
+      show(res.data.message, 'success');
+    } catch (err) { show(err.response?.data?.message || 'Erreur', 'error'); }
+    finally { setPerteLoading(false); }
+  };
+
+  const supprimerPerte = async (id) => {
+    if (!confirm('Supprimer cette perte ?')) return;
+    try { await api.delete(`/pertes/${id}`); await chargerPertes(); show('Perte supprimée', 'success'); }
+    catch { show('Erreur', 'error'); }
+  };
+
   const totaux = bacsData?.totaux || {};
   const prixCourant = (type, cat) => {
     const p = prix.find(p => p.type_stock === type && p.poids_categorie === (cat || null));
     return p?.prix_par_kg || 2500;
   };
 
-  // Regrouper les bacs par numéro
   const bacsParNum = {};
   (bacsData?.bacs || []).forEach(b => {
     if (!bacsParNum[b.bac_numero]) bacsParNum[b.bac_numero] = [];
     bacsParNum[b.bac_numero].push(b);
   });
+
+  if (loading) return (
+    <div className="flex justify-center py-20">
+      <div className="w-8 h-8 border-4 border-ocean-500 border-t-transparent rounded-full animate-spin" />
+    </div>
+  );
 
   return (
     <div className="max-w-4xl space-y-5">
@@ -110,8 +144,8 @@ export default function AdminStocks() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {[
           { label:'Kg achetés total', value:`${parseFloat(totaux.total_kg_achete||0).toFixed(1)} kg`, cls:'text-ocean-700 bg-ocean-50' },
-          { label:'Kg vendus total', value:`${parseFloat(totaux.total_kg_vendu||0).toFixed(1)} kg`, cls:'text-water-700 bg-water-50' },
-          { label:'Kg en stock', value:`${parseFloat(totaux.reste_kg||0).toFixed(1)} kg`, cls: parseFloat(totaux.reste_kg||0)<20 ? 'text-red-700 bg-red-50':'text-green-700 bg-green-50' },
+          { label:'Kg vendus total',  value:`${parseFloat(totaux.total_kg_vendu||0).toFixed(1)} kg`,  cls:'text-water-700 bg-water-50' },
+          { label:'Kg en stock',      value:`${parseFloat(totaux.reste_kg||0).toFixed(1)} kg`,        cls: parseFloat(totaux.reste_kg||0)<20?'text-red-700 bg-red-50':'text-green-700 bg-green-50' },
           { label:'Valeur totale achat', value:`${parseInt(totaux.valeur_totale_achat||0).toLocaleString('fr')} F`, cls:'text-slate-700 bg-slate-50' },
         ].map(s => (
           <div key={s.label} className={`stat-card ${s.cls}`}>
@@ -122,15 +156,16 @@ export default function AdminStocks() {
       </div>
 
       {/* Tabs */}
-      <div className="flex rounded-xl border border-slate-200 overflow-hidden bg-white">
+      <div className="flex rounded-xl border border-slate-200 overflow-hidden bg-white flex-wrap">
         {[
-          { id:'bacs', label:'🐟 Vue par bacs' },
-          { id:'depot', label:'📦 Nouveau dépôt' },
+          { id:'bacs',       label:'🐟 Vue par bacs' },
+          { id:'depot',      label:'📦 Nouveau dépôt' },
           { id:'historique', label:'📋 Historique' },
-          { id:'prix', label:'💰 Prix' },
+          { id:'prix',       label:'💰 Prix' },
+          { id:'pertes',     label:'⚠️ Pertes' },
         ].map(tab => (
           <button key={tab.id} onClick={() => setActiveTab(tab.id)}
-            className={`flex-1 py-2.5 text-xs font-medium transition ${activeTab === tab.id ? 'bg-ocean-600 text-white' : 'text-slate-600 hover:bg-slate-50'}`}>
+            className={`flex-1 py-2.5 text-xs font-medium transition min-w-[80px] ${activeTab === tab.id ? 'bg-ocean-600 text-white' : 'text-slate-600 hover:bg-slate-50'}`}>
             {tab.label}
           </button>
         ))}
@@ -161,7 +196,7 @@ export default function AdminStocks() {
                           </div>
                           <div className="text-right">
                             <span className="font-bold text-slate-700">{parseFloat(b.kg_total).toFixed(1)} kg</span>
-                            <p className="text-slate-400">{parseInt(b.dernier_prix).toLocaleString('fr')} F/kg</p>
+                            <p className="text-slate-400">{parseInt(b.dernier_prix||0).toLocaleString('fr')} F/kg</p>
                           </div>
                         </div>
                       ))
@@ -177,7 +212,6 @@ export default function AdminStocks() {
             })}
           </div>
 
-          {/* Résumé par type */}
           {bacsData?.par_type?.length > 0 && (
             <div className="card overflow-hidden mt-4">
               <div className="px-5 py-3 border-b border-slate-100">
@@ -195,7 +229,7 @@ export default function AdminStocks() {
                     <tr key={i} className="hover:bg-slate-50">
                       <td className="px-4 py-2.5 font-medium text-slate-700 capitalize">{t.type_stock}</td>
                       <td className="px-4 py-2.5 text-slate-500">{t.poids_categorie || '—'}</td>
-                      <td className="px-4 py-2.5 text-right font-semibold">{parseFloat(t.total_achete).toFixed(1)} kg</td>
+                      <td className="px-4 py-2.5 text-right font-semibold">{parseFloat(t.total_achete||0).toFixed(1)} kg</td>
                       <td className="px-4 py-2.5 text-right text-slate-500">{parseInt(t.dernier_prix||0).toLocaleString('fr')} F</td>
                     </tr>
                   ))}
@@ -215,7 +249,7 @@ export default function AdminStocks() {
               <div>
                 <label className="block text-xs font-medium text-slate-500 mb-1">Type de poisson *</label>
                 <select value={depotForm.type_stock} onChange={e => setDepotForm({...depotForm, type_stock: e.target.value})} className="input">
-                  {TYPES_POISSONS.map(t => <option key={t} value={t} className="capitalize">{t}</option>)}
+                  {TYPES_POISSONS.map(t => <option key={t} value={t}>{t}</option>)}
                 </select>
               </div>
               <div>
@@ -278,9 +312,7 @@ export default function AdminStocks() {
               <tbody className="divide-y divide-slate-50">
                 {depots.map(d => (
                   <tr key={d.id} className="hover:bg-slate-50">
-                    <td className="px-3 py-2.5 text-slate-600 text-xs">
-                   {formatDateSafe(d.date_depot, 'd MMM yy')}
-                    </td>
+                    <td className="px-3 py-2.5 text-slate-600 text-xs">{formatDateSafe(d.date_depot)}</td>
                     <td className="px-3 py-2.5 font-medium text-slate-700 capitalize">{d.type_stock}</td>
                     <td className="px-3 py-2.5 text-slate-500 text-xs">{d.poids_categorie || '—'}</td>
                     <td className="px-3 py-2.5 text-center">
@@ -306,7 +338,7 @@ export default function AdminStocks() {
         <div className="space-y-4" key="tab-prix">
           <div className="card p-5">
             <h2 className="text-sm font-semibold text-slate-700 mb-1">Modifier le prix d'un type de stock</h2>
-            <p className="text-xs text-slate-400 mb-4">⚠️ La modification n'affecte pas les dépôts passés. Seuls les nouveaux dépôts utiliseront le nouveau prix.</p>
+            <p className="text-xs text-slate-400 mb-4">⚠️ La modification n'affecte pas les dépôts passés.</p>
             <form onSubmit={modifierPrix} className="space-y-3">
               <div className="grid grid-cols-2 gap-3">
                 <div>
@@ -328,13 +360,16 @@ export default function AdminStocks() {
                     onChange={e => setPrixForm({...prixForm, nouveau_prix: e.target.value})} className="input" placeholder="Ex: 3000" />
                 </div>
               </div>
-              <button type="submit" disabled={prixLoading} className="btn-primary">{prixLoading ? 'Mise à jour…' : 'Mettre à jour le prix'}</button>
+              <button type="submit" disabled={prixLoading} className="btn-primary">
+                {prixLoading ? 'Mise à jour…' : 'Mettre à jour le prix'}
+              </button>
             </form>
           </div>
 
-          {/* Grille prix actuels */}
           <div className="card overflow-hidden">
-            <div className="px-5 py-3 border-b border-slate-100"><h3 className="text-sm font-semibold text-slate-600">Prix actuellement en vigueur</h3></div>
+            <div className="px-5 py-3 border-b border-slate-100">
+              <h3 className="text-sm font-semibold text-slate-600">Prix actuellement en vigueur</h3>
+            </div>
             <table className="w-full text-sm">
               <thead className="bg-slate-50"><tr>
                 <th className="px-4 py-2 text-left text-xs font-semibold text-slate-500">Type</th>
@@ -343,20 +378,158 @@ export default function AdminStocks() {
                 <th className="px-4 py-2 text-left text-xs font-semibold text-slate-500">Depuis</th>
               </tr></thead>
               <tbody className="divide-y divide-slate-50">
-                {(!prix || prix.length === 0) ? (
-                  <tr><td colSpan={4} className="text-center py-6 text-slate-400 text-sm">
-                    Aucun prix configuré — exécutez le script SQL d'initialisation dans Neon.
-                  </td></tr>
-                ) : prix.map(p => (
-                  <tr key={p.id} className="hover:bg-slate-50">
-                    <td className="px-4 py-2.5 font-medium text-slate-700 capitalize">{p?.type_stock || '—'}</td>
-                    <td className="px-4 py-2.5 text-slate-500">{p?.poids_categorie || 'Toutes'}</td>
-                    <td className="px-4 py-2.5 text-right font-bold text-water-700">{parseInt(p?.prix_par_kg || 0).toLocaleString('fr')} FCFA</td>
-                    <td className="px-4 py-2.5 text-slate-400 text-xs">{formatDateSafe(p?.date_debut, 'd MMM yyyy')}</td>
-                  </tr>
-                ))}
+                {(!prix || prix.length === 0)
+                  ? <tr><td colSpan={4} className="text-center py-6 text-slate-400 text-sm">Aucun prix configuré.</td></tr>
+                  : prix.map(p => (
+                    <tr key={p.id} className="hover:bg-slate-50">
+                      <td className="px-4 py-2.5 font-medium text-slate-700 capitalize">{p?.type_stock || '—'}</td>
+                      <td className="px-4 py-2.5 text-slate-500">{p?.poids_categorie || 'Toutes'}</td>
+                      <td className="px-4 py-2.5 text-right font-bold text-water-700">{parseInt(p?.prix_par_kg||0).toLocaleString('fr')} FCFA</td>
+                      <td className="px-4 py-2.5 text-slate-400 text-xs">{formatDateSafe(p?.date_debut, 'd MMM yyyy')}</td>
+                    </tr>
+                  ))
+                }
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+
+      {/* ─── PERTES ─── */}
+      {activeTab === 'pertes' && (
+        <div className="space-y-4">
+          {/* Formulaire déclarer une perte */}
+          <div className="card p-5 border-l-4 border-red-400">
+            <h2 className="text-sm font-semibold text-slate-700 mb-1">⚠️ Déclarer une perte de stock</h2>
+            <p className="text-xs text-slate-400 mb-4">
+              Kg perdus suite à une perte de poids naturelle ou à la mort d'un poisson dans un bac.
+            </p>
+            <form onSubmit={declarerPerte} className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+
+                {/* Type de perte */}
+                <div className="col-span-2">
+                  <label className="block text-xs font-medium text-slate-500 mb-1">Type de perte *</label>
+                  <div className="flex gap-2">
+                    {[
+                      { val:'perte_poids', label:'⚖️ Perte de poids', desc:'Poids perdu naturellement' },
+                      { val:'mort',        label:'💀 Mort',            desc:'Poisson mort dans le bac' },
+                    ].map(opt => (
+                      <button key={opt.val} type="button"
+                        onClick={() => setPerteForm({...perteForm, type_perte: opt.val})}
+                        className={`flex-1 p-3 rounded-xl border-2 text-left transition ${
+                          perteForm.type_perte === opt.val
+                            ? 'border-red-500 bg-red-50'
+                            : 'border-slate-200 bg-white hover:border-slate-300'
+                        }`}>
+                        <p className={`text-sm font-semibold ${perteForm.type_perte === opt.val ? 'text-red-700' : 'text-slate-700'}`}>{opt.label}</p>
+                        <p className="text-xs text-slate-400 mt-0.5">{opt.desc}</p>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Stock concerné */}
+                <div>
+                  <label className="block text-xs font-medium text-slate-500 mb-1">Type de poisson *</label>
+                  <select value={perteForm.type_stock} onChange={e => setPerteForm({...perteForm, type_stock: e.target.value})} className="input">
+                    {TYPES_POISSONS.map(t => <option key={t} value={t}>{t}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-500 mb-1">Catégorie de poids</label>
+                  <select value={perteForm.poids_categorie} onChange={e => setPerteForm({...perteForm, poids_categorie: e.target.value})} className="input">
+                    <option value="">— Sélectionner —</option>
+                    {CATEGORIES_POIDS.map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-500 mb-1">Bac concerné</label>
+                  <select value={perteForm.bac_numero} onChange={e => setPerteForm({...perteForm, bac_numero: e.target.value})} className="input">
+                    <option value="">— Aucun bac —</option>
+                    {[1,2,3,4,5,6,7].map(n => <option key={n} value={n}>Bac {n}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-500 mb-1">Kg perdus *</label>
+                  <input type="number" step="0.1" min="0.01" required value={perteForm.kg_perdus}
+                    onChange={e => setPerteForm({...perteForm, kg_perdus: e.target.value})} className="input" placeholder="Ex: 2.5" />
+                </div>
+                <div className="col-span-2">
+                  <label className="block text-xs font-medium text-slate-500 mb-1">Commentaire</label>
+                  <input type="text" value={perteForm.commentaire}
+                    onChange={e => setPerteForm({...perteForm, commentaire: e.target.value})}
+                    className="input" placeholder="Ex: 3 silures morts cette nuit dans le bac 2…" />
+                </div>
+              </div>
+
+              {/* Aperçu valeur perdue */}
+              {perteForm.kg_perdus && parseFloat(perteForm.kg_perdus) > 0 && (
+                <div className="px-3 py-2.5 bg-red-50 rounded-lg text-sm text-red-700 border border-red-100">
+                  Valeur perdue estimée : <strong>{(parseFloat(perteForm.kg_perdus) * 2500).toLocaleString('fr')} FCFA</strong>
+                  {' '}({perteForm.kg_perdus} kg × 2 500 FCFA)
+                </div>
+              )}
+
+              <button type="submit" disabled={perteLoading} className="btn-danger">
+                {perteLoading ? 'Enregistrement…' : '⚠️ Déclarer cette perte'}
+              </button>
+            </form>
+          </div>
+
+          {/* Historique des pertes */}
+          <div className="card overflow-hidden">
+            <div className="px-5 py-3 border-b border-slate-100 flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-slate-600">Historique des pertes</h3>
+              <button onClick={chargerPertes} className="text-xs text-ocean-600 hover:text-ocean-700">↺ Actualiser</button>
+            </div>
+            {pertesLoading ? (
+              <div className="flex justify-center py-8"><div className="w-5 h-5 border-4 border-red-400 border-t-transparent rounded-full animate-spin" /></div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-slate-50"><tr>
+                    <th className="px-3 py-2 text-left text-xs font-semibold text-slate-500">Date</th>
+                    <th className="px-3 py-2 text-left text-xs font-semibold text-slate-500">Type</th>
+                    <th className="px-3 py-2 text-left text-xs font-semibold text-slate-500">Stock</th>
+                    <th className="px-3 py-2 text-center text-xs font-semibold text-slate-500">Bac</th>
+                    <th className="px-3 py-2 text-right text-xs font-semibold text-slate-500">Kg perdus</th>
+                    <th className="px-3 py-2 text-right text-xs font-semibold text-slate-500">Valeur</th>
+                    <th className="px-3 py-2 text-left text-xs font-semibold text-slate-500">Déclaré par</th>
+                    <th className="px-3 py-2 text-left text-xs font-semibold text-slate-500">Note</th>
+                    <th className="px-2 py-2"></th>
+                  </tr></thead>
+                  <tbody className="divide-y divide-slate-50">
+                    {pertes.map(p => (
+                      <tr key={p.id} className="hover:bg-slate-50">
+                        <td className="px-3 py-2 text-slate-500 text-xs">{formatDateSafe(p.created_at, 'd MMM yy')}</td>
+                        <td className="px-3 py-2">
+                          <span className={`text-xs font-medium px-1.5 py-0.5 rounded-full ${p.type_perte==='mort'?'bg-red-100 text-red-700':'bg-orange-100 text-orange-700'}`}>
+                            {p.type_perte === 'mort' ? '💀 Mort' : '⚖️ Poids'}
+                          </span>
+                        </td>
+                        <td className="px-3 py-2 text-slate-700 text-xs capitalize">
+                          {p.type_stock}{p.poids_categorie ? ` · ${p.poids_categorie}` : ''}
+                        </td>
+                        <td className="px-3 py-2 text-center">
+                          {p.bac_numero ? <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${COULEURS_BAC[p.bac_numero-1]}`}>B{p.bac_numero}</span> : '—'}
+                        </td>
+                        <td className="px-3 py-2 text-right font-bold text-red-600">{parseFloat(p.kg_perdus).toFixed(1)} kg</td>
+                        <td className="px-3 py-2 text-right text-red-500 text-xs">{(parseFloat(p.kg_perdus)*2500).toLocaleString('fr')} F</td>
+                        <td className="px-3 py-2 text-slate-500 text-xs">{p.declare_par_nom}</td>
+                        <td className="px-3 py-2 text-slate-400 text-xs italic">{p.commentaire || '—'}</td>
+                        <td className="px-2 py-2">
+                          <button onClick={() => supprimerPerte(p.id)} className="text-slate-300 hover:text-red-500 text-xs">✕</button>
+                        </td>
+                      </tr>
+                    ))}
+                    {pertes.length === 0 && (
+                      <tr><td colSpan={9} className="text-center py-8 text-slate-400 text-sm">Aucune perte enregistrée.</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         </div>
       )}

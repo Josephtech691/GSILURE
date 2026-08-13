@@ -17,3 +17,39 @@ ReactDOM.createRoot(document.getElementById('root')).render(
     </BrowserRouter>
   </React.StrictMode>
 );
+
+/**
+ * Enregistre le Service Worker et demande immédiatement une mise à jour.
+ * Cela évite d'attendre longtemps entre deux déploiements Vercel.
+ */
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', async () => {
+    try {
+      const registration = await navigator.serviceWorker.register('/sw.js', {
+        updateViaCache: 'none',
+      });
+
+      // Vérifie immédiatement si Vercel possède une nouvelle version.
+      await registration.update();
+
+      registration.addEventListener('updatefound', () => {
+        const newWorker = registration.installing;
+
+        if (!newWorker) return;
+
+        newWorker.addEventListener('statechange', () => {
+          if (
+            newWorker.state === 'installed' &&
+            navigator.serviceWorker.controller
+          ) {
+            console.info('Nouvelle version détectée. Rechargement...');
+          }
+        });
+      });
+
+      console.info('Service Worker enregistré.');
+    } catch (error) {
+      console.error('Erreur Service Worker :', error);
+    }
+  });
+}

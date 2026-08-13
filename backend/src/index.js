@@ -50,6 +50,7 @@ app.use('/api/auth',   require('./routes/auth'));
 app.use('/api/ventes', require('./routes/ventes'));
 app.use('/api/stocks', require('./routes/stocks'));
 app.use('/api/chat',   require('./routes/chat'));
+app.use('/api/pertes', require('./routes/pertes'));
 
 app.get('/health', (req, res) => res.json({ status: 'ok', ts: new Date().toISOString() }));
 app.use((req, res) => res.status(404).json({ message: 'Route non trouvée.' }));
