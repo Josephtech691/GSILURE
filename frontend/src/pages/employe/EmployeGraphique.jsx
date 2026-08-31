@@ -103,7 +103,8 @@ export default function EmployeGraphique() {
   const stockGlobal = data?.stock_global || {};
   const totalKgAchete = stockGlobal.total_kg_achete || 0;
   const totalKgVendu = stockGlobal.total_kg_vendu || 0;
-  const resteKg = totalKgAchete - totalKgVendu;
+  const totalKgPerdu = stockGlobal.total_kg_perdu || 0;
+const resteKg = totalKgAchete - totalKgVendu - totalKgPerdu;
 
   const Chart = typeChart === 'bar' ? BarChart : LineChart;
 
@@ -290,6 +291,10 @@ export default function EmployeGraphique() {
                 <p className={`text-xl font-bold ${resteKg < 20 ? 'text-red-600' : 'text-green-700'}`}>{resteKg.toFixed(1)}</p>
                 <p className="text-xs text-slate-400 mt-0.5">kg restants</p>
               </div>
+              <div className="text-center p-3 bg-red-50 rounded-lg">
+  <p className="text-xl font-bold text-red-600">{totalKgPerdu.toFixed(1)}</p>
+  <p className="text-xs text-slate-400 mt-0.5">kg perdus</p>
+</div>
             </div>
 
             {/* Détail par type/bac */}
