@@ -207,6 +207,148 @@ export default function AdminDashboard() {
         )}
       </div>
 
+      
+      {/* ═══ FILTRES JOURNÉE ═══ */}
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <p className="text-sm text-slate-500">{format(new Date(date+'T12:00:00'), 'EEEE d MMMM yyyy', { locale: fr })}</p>
+        <div className="flex flex-wrap gap-2">
+          <select value={filtreEmploye} onChange={e => setFiltreEmploye(e.target.value)} className="input w-auto text-sm">
+            <option value="">Tous les employés</option>
+            {employes.map(e => <option key={e.id} value={e.id}>{e.prenom} {e.nom}</option>)}
+          </select>
+          <input type="date" value={date} max={todayStr()} onChange={e => setDate(e.target.value)} className="input w-auto text-sm" />
+        </div>
+      </div>
+
+      {/* ═══ STATS DU JOUR ═══ */}
+      <div>
+        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3">
+          Journée du {format(new Date(date+'T12:00:00'), 'd MMM', { locale: fr })}
+        </p>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <StatCard icon="⚖️" label="Kg vendus" value={`${(t.kg_vendus||0).toFixed(1)} kg`} color="ocean" />
+          <StatCard icon="💵" label="CA encaissé" value={`${parseInt(t.ca_total||0).toLocaleString('fr')} F`} color="water" />
+          <StatCard icon="👥" label="Clients" value={t.nb_clients||0} color="slate" />
+          <StatCard icon="⚠️" label="Reste à percevoir" value={`${parseInt((t.kg_vendus||0)*2500-(t.ca_total||0)).toLocaleString('fr')} F`} color="amber" />
+        </div>
+      </div>
+
+      {/* ═══ STATS PAR EMPLOYÉ ═══ */}
+      <div className="card overflow-hidden">
+        <div className="px-5 py-3 border-b border-slate-100">
+          <h2 className="text-sm font-semibold text-slate-600">👥 Par employé — {format(new Date(date+'T12:00:00'), 'd MMMM', { locale: fr })}</h2>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-slate-50"><tr>
+              <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-500">Employé</th>
+              <th className="px-4 py-2.5 text-right text-xs font-semibold text-slate-500">Kg vendus</th>
+              <th className="px-4 py-2.5 text-right text-xs font-semibold text-slate-500">Encaissé</th>
+              <th className="px-4 py-2.5 text-right text-xs font-semibold text-slate-500">Clients</th>
+              <th className="px-4 py-2.5 text-right text-xs font-semibold text-slate-500">Reste</th>
+            </tr></thead>
+            <tbody className="divide-y divide-slate-50">
+              {(data?.stats_par_employe||[]).map(emp => (
+                <tr key={emp.employe_id} className="hover:bg-slate-50">
+                  <td className="px-4 py-3 font-medium text-slate-700">{emp.employe_nom}</td>
+                  <td className="px-4 py-3 text-right">{parseFloat(emp.kg_vendus_jour||0).toFixed(1)} kg</td>
+                  <td className="px-4 py-3 text-right text-water-700 font-medium">{parseInt(emp.ca_jour||0).toLocaleString('fr')} F</td>
+                  <td className="px-4 py-3 text-right text-slate-500">{emp.nb_clients}</td>
+                  <td className={`px-4 py-3 text-right font-medium ${parseInt(emp.kg_vendus_jour||0)*2500-parseInt(emp.ca_jour||0)>0?'text-red-600':'text-green-600'}`}>
+                    {(parseInt(emp.kg_vendus_jour||0)*2500-parseInt(emp.ca_jour||0)).toLocaleString('fr')} F
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* ═══ CLIENTS DU JOUR ═══ */}
+      {(data?.clients_du_jour||[]).length > 0 && (
+        <div className="card overflow-hidden">
+          <div className="px-5 py-3 border-b border-slate-100 flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-slate-600">🛒 Clients du {format(new Date(date+'T12:00:00'), 'd MMMM', { locale: fr })}</h2>
+            <span className="text-xs bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full">{data.clients_du_jour.length} client{data.clients_du_jour.length>1?'s':''}</span>
+          </div>
+          <div className="divide-y divide-slate-50">
+            {data.clients_du_jour.map(c => {
+              const theorique = parseFloat(c.kg_achetes)*2500;
+              const reste = theorique - parseFloat(c.montant_recu);
+              return (
+                <div key={c.id} className="px-5 py-3 hover:bg-slate-50 transition">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full bg-ocean-100 text-ocean-700 text-xs font-bold whitespace-nowrap shrink-0">
+                      Client {c.numero_client}
+                    </span>
+                    <span className="text-xs font-medium text-slate-600 bg-slate-100 px-2 py-0.5 rounded shrink-0">{c.employe_nom}</span>
+                    <span className="font-bold text-slate-700 text-sm">{parseFloat(c.kg_achetes).toFixed(1)} kg</span>
+                    <span className="text-water-700 font-medium text-sm">{parseInt(c.montant_recu).toLocaleString('fr')} FCFA</span>
+                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${c.reste_annule?'bg-blue-100 text-blue-700':reste>0?'bg-red-100 text-red-700':'bg-green-100 text-green-700'}`}>
+                      {c.reste_annule?'✓ Reste annulé':reste>0?`Reste : ${parseInt(reste).toLocaleString('fr')} F`:'✓ Soldé'}
+                    </span>
+                    <span className="text-xs text-slate-400 ml-auto shrink-0">{c.heure_approx?.slice(0,5)}</span>
+                  </div>
+                  {c.commentaire && (
+                    <div className="mt-2 flex items-start gap-1.5 ml-1">
+                      <span className="text-slate-300 text-xs shrink-0 mt-0.5">💬</span>
+                      <p className="text-xs text-slate-500 italic bg-slate-50 border border-slate-100 px-2.5 py-1.5 rounded-lg flex-1">{c.commentaire}</p>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+          <div className="px-5 py-3 bg-slate-50 border-t border-slate-200 flex items-center gap-4 flex-wrap">
+            <span className="text-xs text-slate-500 font-semibold">Totaux :</span>
+            <span className="font-bold text-slate-700 text-sm">{data.clients_du_jour.reduce((s,c)=>s+parseFloat(c.kg_achetes||0),0).toFixed(1)} kg</span>
+            <span className="font-bold text-water-700 text-sm">{data.clients_du_jour.reduce((s,c)=>s+parseFloat(c.montant_recu||0),0).toLocaleString('fr')} FCFA</span>
+            <span className="text-xs font-medium text-red-500">
+              {data.clients_du_jour.reduce((s,c)=>{const r=parseFloat(c.kg_achetes||0)*2500-parseFloat(c.montant_recu||0);return s+(c.reste_annule?0:Math.max(0,r));},0).toLocaleString('fr')} FCFA restants
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* Demandes en attente */}
+      {data?.nb_demandes_attente > 0 && (
+        <div className="card p-4 border-l-4 border-amber-400 bg-amber-50 flex items-center justify-between">
+          <span className="text-sm text-amber-800 font-medium">🔔 {data.nb_demandes_attente} demande{data.nb_demandes_attente>1?'s':''} en attente</span>
+          <a href="/admin/demandes" className="btn-primary text-xs py-1.5">Voir les demandes</a>
+        </div>
+      )}
+
+           {/* ═══ CASSE EMPLOYÉS ═══ */}
+      <div className="card overflow-hidden">
+        <div className="px-5 py-3 border-b border-slate-100">
+          <h2 className="text-sm font-semibold text-slate-600">💼 Casse — Argent total détenu par employé</h2>
+        </div>
+        <div className="divide-y divide-slate-50">
+          {casse.map(emp => {
+            const casseBrute = parseFloat(emp.total_encaisse_ventes||0)+parseFloat(emp.total_ajouts||0)-parseFloat(emp.total_retraits||0);
+            const casseNette = casseBrute - parseFloat(emp.total_verse_patron||0);
+            return (
+              <div key={emp.employe_id} className="flex items-center px-5 py-3 gap-4">
+                <Avatar user={{ nom:emp.employe_nom?.split(' ').slice(-1)[0]||'', prenom:emp.employe_nom?.split(' ')[0]||'' }} size="sm" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-slate-700">{emp.employe_nom}</p>
+                  <p className="text-xs text-slate-400">
+                    Théorique : {parseInt(emp.total_valeur_theorique||0).toLocaleString('fr')} F
+                    {parseFloat(emp.total_verse_patron||0)>0 && <span className="ml-2 text-purple-500">· Versé -: {parseInt(emp.total_verse_patron).toLocaleString('fr')} F</span>}
+                  </p> {parseFloat(emp.total_retraits||0)>0 &&
+                  <p className="text-xs text-slate-400">
+                    Retraits divers : -{parseInt(emp.total_retraits||0).toLocaleString('fr')} F</p>}
+                </div>
+                <div className="text-right">
+                  <p className="text-sm font-bold text-water-700">{parseInt(Math.max(0,casseNette)).toLocaleString('fr')} FCFA</p>
+                  <p className="text-xs text-slate-400">en caisse</p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
       {/* ═══ REVENUS DES VENTES ═══ */}
       <div className="card p-5">
         <div className="flex items-center justify-between mb-4">
@@ -323,138 +465,8 @@ export default function AdminDashboard() {
         )}
       </div>
 
-      {/* ═══ CASSE EMPLOYÉS ═══ */}
-      <div className="card overflow-hidden">
-        <div className="px-5 py-3 border-b border-slate-100">
-          <h2 className="text-sm font-semibold text-slate-600">💼 Casse — Argent total détenu par employé</h2>
-        </div>
-        <div className="divide-y divide-slate-50">
-          {casse.map(emp => {
-            const casseBrute = parseFloat(emp.total_encaisse_ventes||0)+parseFloat(emp.total_ajouts||0)-parseFloat(emp.total_retraits||0);
-            const casseNette = casseBrute - parseFloat(emp.total_verse_patron||0);
-            return (
-              <div key={emp.employe_id} className="flex items-center px-5 py-3 gap-4">
-                <Avatar user={{ nom:emp.employe_nom?.split(' ').slice(-1)[0]||'', prenom:emp.employe_nom?.split(' ')[0]||'' }} size="sm" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-slate-700">{emp.employe_nom}</p>
-                  <p className="text-xs text-slate-400">
-                    Théorique : {parseInt(emp.total_valeur_theorique||0).toLocaleString('fr')} F
-                    {parseFloat(emp.total_verse_patron||0)>0 && <span className="ml-2 text-purple-500">· Versé -: {parseInt(emp.total_verse_patron).toLocaleString('fr')} F</span>}
-                  </p> {parseFloat(emp.total_retraits||0)>0 &&
-                  <p className="text-xs text-slate-400">
-                    Retraits divers : -{parseInt(emp.total_retraits||0).toLocaleString('fr')} F</p>}
-                </div>
-                <div className="text-right">
-                  <p className="text-sm font-bold text-water-700">{parseInt(Math.max(0,casseNette)).toLocaleString('fr')} FCFA</p>
-                  <p className="text-xs text-slate-400">en caisse</p>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
+ 
 
-      {/* ═══ FILTRES JOURNÉE ═══ */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <p className="text-sm text-slate-500">{format(new Date(date+'T12:00:00'), 'EEEE d MMMM yyyy', { locale: fr })}</p>
-        <div className="flex flex-wrap gap-2">
-          <select value={filtreEmploye} onChange={e => setFiltreEmploye(e.target.value)} className="input w-auto text-sm">
-            <option value="">Tous les employés</option>
-            {employes.map(e => <option key={e.id} value={e.id}>{e.prenom} {e.nom}</option>)}
-          </select>
-          <input type="date" value={date} max={todayStr()} onChange={e => setDate(e.target.value)} className="input w-auto text-sm" />
-        </div>
-      </div>
-
-      {/* ═══ STATS DU JOUR ═══ */}
-      <div>
-        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3">
-          Journée du {format(new Date(date+'T12:00:00'), 'd MMM', { locale: fr })}
-        </p>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          <StatCard icon="⚖️" label="Kg vendus" value={`${(t.kg_vendus||0).toFixed(1)} kg`} color="ocean" />
-          <StatCard icon="💵" label="CA encaissé" value={`${parseInt(t.ca_total||0).toLocaleString('fr')} F`} color="water" />
-          <StatCard icon="👥" label="Clients" value={t.nb_clients||0} color="slate" />
-          <StatCard icon="⚠️" label="Reste à percevoir" value={`${parseInt((t.kg_vendus||0)*2500-(t.ca_total||0)).toLocaleString('fr')} F`} color="amber" />
-        </div>
-      </div>
-
-      {/* ═══ STATS PAR EMPLOYÉ ═══ */}
-      <div className="card overflow-hidden">
-        <div className="px-5 py-3 border-b border-slate-100">
-          <h2 className="text-sm font-semibold text-slate-600">👥 Par employé — {format(new Date(date+'T12:00:00'), 'd MMMM', { locale: fr })}</h2>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-slate-50"><tr>
-              <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-500">Employé</th>
-              <th className="px-4 py-2.5 text-right text-xs font-semibold text-slate-500">Kg vendus</th>
-              <th className="px-4 py-2.5 text-right text-xs font-semibold text-slate-500">Encaissé</th>
-              <th className="px-4 py-2.5 text-right text-xs font-semibold text-slate-500">Clients</th>
-              <th className="px-4 py-2.5 text-right text-xs font-semibold text-slate-500">Reste</th>
-            </tr></thead>
-            <tbody className="divide-y divide-slate-50">
-              {(data?.stats_par_employe||[]).map(emp => (
-                <tr key={emp.employe_id} className="hover:bg-slate-50">
-                  <td className="px-4 py-3 font-medium text-slate-700">{emp.employe_nom}</td>
-                  <td className="px-4 py-3 text-right">{parseFloat(emp.kg_vendus_jour||0).toFixed(1)} kg</td>
-                  <td className="px-4 py-3 text-right text-water-700 font-medium">{parseInt(emp.ca_jour||0).toLocaleString('fr')} F</td>
-                  <td className="px-4 py-3 text-right text-slate-500">{emp.nb_clients}</td>
-                  <td className={`px-4 py-3 text-right font-medium ${parseInt(emp.kg_vendus_jour||0)*2500-parseInt(emp.ca_jour||0)>0?'text-red-600':'text-green-600'}`}>
-                    {(parseInt(emp.kg_vendus_jour||0)*2500-parseInt(emp.ca_jour||0)).toLocaleString('fr')} F
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* ═══ CLIENTS DU JOUR ═══ */}
-      {(data?.clients_du_jour||[]).length > 0 && (
-        <div className="card overflow-hidden">
-          <div className="px-5 py-3 border-b border-slate-100 flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-slate-600">🛒 Clients du {format(new Date(date+'T12:00:00'), 'd MMMM', { locale: fr })}</h2>
-            <span className="text-xs bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full">{data.clients_du_jour.length} client{data.clients_du_jour.length>1?'s':''}</span>
-          </div>
-          <div className="divide-y divide-slate-50">
-            {data.clients_du_jour.map(c => {
-              const theorique = parseFloat(c.kg_achetes)*2500;
-              const reste = theorique - parseFloat(c.montant_recu);
-              return (
-                <div key={c.id} className="px-5 py-3 hover:bg-slate-50 transition">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full bg-ocean-100 text-ocean-700 text-xs font-bold whitespace-nowrap shrink-0">
-                      Client {c.numero_client}
-                    </span>
-                    <span className="text-xs font-medium text-slate-600 bg-slate-100 px-2 py-0.5 rounded shrink-0">{c.employe_nom}</span>
-                    <span className="font-bold text-slate-700 text-sm">{parseFloat(c.kg_achetes).toFixed(1)} kg</span>
-                    <span className="text-water-700 font-medium text-sm">{parseInt(c.montant_recu).toLocaleString('fr')} FCFA</span>
-                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${c.reste_annule?'bg-blue-100 text-blue-700':reste>0?'bg-red-100 text-red-700':'bg-green-100 text-green-700'}`}>
-                      {c.reste_annule?'✓ Reste annulé':reste>0?`Reste : ${parseInt(reste).toLocaleString('fr')} F`:'✓ Soldé'}
-                    </span>
-                    <span className="text-xs text-slate-400 ml-auto shrink-0">{c.heure_approx?.slice(0,5)}</span>
-                  </div>
-                  {c.commentaire && (
-                    <div className="mt-2 flex items-start gap-1.5 ml-1">
-                      <span className="text-slate-300 text-xs shrink-0 mt-0.5">💬</span>
-                      <p className="text-xs text-slate-500 italic bg-slate-50 border border-slate-100 px-2.5 py-1.5 rounded-lg flex-1">{c.commentaire}</p>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-          <div className="px-5 py-3 bg-slate-50 border-t border-slate-200 flex items-center gap-4 flex-wrap">
-            <span className="text-xs text-slate-500 font-semibold">Totaux :</span>
-            <span className="font-bold text-slate-700 text-sm">{data.clients_du_jour.reduce((s,c)=>s+parseFloat(c.kg_achetes||0),0).toFixed(1)} kg</span>
-            <span className="font-bold text-water-700 text-sm">{data.clients_du_jour.reduce((s,c)=>s+parseFloat(c.montant_recu||0),0).toLocaleString('fr')} FCFA</span>
-            <span className="text-xs font-medium text-red-500">
-              {data.clients_du_jour.reduce((s,c)=>{const r=parseFloat(c.kg_achetes||0)*2500-parseFloat(c.montant_recu||0);return s+(c.reste_annule?0:Math.max(0,r));},0).toLocaleString('fr')} FCFA restants
-            </span>
-          </div>
-        </div>
-      )}
 
       {/* ═══ VENTES DU MOIS — sélectionnable ═══ */}
       <div className="card overflow-hidden">
@@ -489,13 +501,7 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-      {/* Demandes en attente */}
-      {data?.nb_demandes_attente > 0 && (
-        <div className="card p-4 border-l-4 border-amber-400 bg-amber-50 flex items-center justify-between">
-          <span className="text-sm text-amber-800 font-medium">🔔 {data.nb_demandes_attente} demande{data.nb_demandes_attente>1?'s':''} en attente</span>
-          <a href="/admin/demandes" className="btn-primary text-xs py-1.5">Voir les demandes</a>
-        </div>
-      )}
+      
 
       <Chat date={date} />
     </div>
