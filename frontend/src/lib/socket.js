@@ -1,8 +1,9 @@
 import { io } from 'socket.io-client';
 
-const SOCKET_URL = import.meta.env.VITE_API_URL
-  ? import.meta.env.VITE_API_URL.replace('/api', '')
-  : 'http://localhost:4000'||'https://gsilures.onrender.com'||'https://gsilures.vercel.app';
+const API_URL = import.meta.env.VITE_API_URL
+  || (import.meta.env.PROD ? 'https://gsilures.onrender.com/api' : '/api');
+
+const SOCKET_URL = API_URL.replace(/\/api\/?$/, '');
 
 let socket = null;
 

@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { enqueue, replayQueue } from './offlineQueue';
 
-const BASE_URL = import.meta.env.VITE_API_URL || '/api'||'https://gsilures.vercel.app'||'https://gsilures.onrender.com';
+const BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://gsilures.onrender.com/api' : '/api');
 
 const api = axios.create({ baseURL: BASE_URL, timeout: 15000 });
 

@@ -561,7 +561,7 @@ export default function AdminDashboard() {
       <div className="card overflow-hidden">
         <div className="px-5 py-3 border-b border-slate-100 flex items-center justify-between">
           <h2 className="text-sm font-semibold text-slate-600">{periodeActive ? "📊 Les ventes de la période" : "📊 Les ventes du mois"}</h2>
-          {periodeActive ? <select value={periodeSelectionnee?.id || } onChange={e => selectionnerPeriode(e.target.value)} className="text-xs border border-slate-200 rounded-lg px-2 py-1 bg-white text-slate-600">{periodes.map(p => <option key={p.id} value={p.id}>{format(new Date(p.date_debut+'T12:00:00'), 'dd/MM/yyyy')} → {p.date_fin ? format(new Date(p.date_fin+'T12:00:00'), 'dd/MM/yyyy') : 'en cours'}</option>)}</select> : <MoisSelect value={moisVentes} onChange={setMoisVentes} />}
+          {periodeActive ? <select value={periodeSelectionnee?.id || ''} onChange={e => selectionnerPeriode(e.target.value)} className="text-xs border border-slate-200 rounded-lg px-2 py-1 bg-white text-slate-600">{periodes.map(p => <option key={p.id} value={p.id}>{format(new Date(p.date_debut+'T12:00:00'), 'dd/MM/yyyy')} → {p.date_fin ? format(new Date(p.date_fin+'T12:00:00'), 'dd/MM/yyyy') : 'en cours'}</option>)}</select> : <MoisSelect value={moisVentes} onChange={setMoisVentes} />}
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
