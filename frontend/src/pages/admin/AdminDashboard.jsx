@@ -511,6 +511,7 @@ export default function AdminDashboard() {
             {parseInt(ccAnnee.encaissements||0)>0 && <p>Versé patron : -{parseInt(ccAnnee.encaissements||0).toLocaleString('fr')} F</p>}
           </div>
         </div>
+        </div>
         )}
       </div>
 
