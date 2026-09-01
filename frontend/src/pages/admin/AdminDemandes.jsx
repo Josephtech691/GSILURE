@@ -25,6 +25,10 @@ export default function AdminDemandes() {
   const [statut, setStatut] = useState('en_attente');
   const [typeFiltre, setTypeFiltre] = useState('');
   const [loading, setLoading] = useState(true);
+  const [periodes, setPeriodes] = useState([]);
+  const [filtrePeriode, setFiltrePeriode] = useState('');
+  const [filtreMois, setFiltreMois] = useState('');
+  const [modeHistorique, setModeHistorique] = useState('periode');
 
   const charger = async () => {
     setLoading(true);
@@ -32,13 +36,19 @@ export default function AdminDemandes() {
       const params = new URLSearchParams();
       if (statut) params.append('statut', statut);
       if (typeFiltre) params.append('type', typeFiltre);
+      if (modeHistorique === 'periode' && filtrePeriode) params.append('periode_id', filtrePeriode);
+      if (modeHistorique === 'mois' && filtreMois) params.append('mois', filtreMois);
       const res = await api.get(`/ventes/demandes?${params}`);
       setDemandes(res.data);
     } catch (err) { console.error(err); }
     finally { setLoading(false); }
   };
 
-  useEffect(() => { charger(); }, [statut, typeFiltre]);
+  useEffect(() => {
+    api.get('/periodes').then(r => setPeriodes(r.data?.periodes || [])).catch(console.error);
+  }, []);
+
+  useEffect(() => { charger(); }, [statut, typeFiltre, modeHistorique, filtrePeriode, filtreMois]);
 
   const traiter = async (id, nouveauStatut, demande) => {
     const verb = nouveauStatut === 'approuvee' ? 'approuver' : 'refuser';
@@ -88,6 +98,24 @@ export default function AdminDemandes() {
             {f.label}
           </button>
         ))}
+      </div>
+
+      {/* Filtres historique */}
+      <div className="card p-4 space-y-3">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-xs font-semibold text-slate-500">Historique :</span>
+          <button onClick={() => { setModeHistorique('periode'); setFiltreMois(''); }} className={`px-2.5 py-1 rounded-lg text-xs font-medium ${modeHistorique === 'periode' ? 'bg-water-600 text-white' : 'bg-white border border-slate-200 text-slate-500'}`}>Par période</button>
+          <button onClick={() => { setModeHistorique('mois'); setFiltrePeriode(''); }} className={`px-2.5 py-1 rounded-lg text-xs font-medium ${modeHistorique === 'mois' ? 'bg-water-600 text-white' : 'bg-white border border-slate-200 text-slate-500'}`}>Par mois</button>
+          <button onClick={() => { setFiltrePeriode(''); setFiltreMois(''); }} className="px-2.5 py-1 rounded-lg text-xs font-medium bg-white border border-slate-200 text-slate-500">Tout</button>
+        </div>
+        {modeHistorique === 'periode' ? (
+          <select value={filtrePeriode} onChange={e => setFiltrePeriode(e.target.value)} className="input text-sm">
+            <option value="">Toutes les périodes</option>
+            {periodes.map(p => <option key={p.id} value={p.id}>{format(new Date(p.date_debut+'T12:00:00'), 'dd/MM/yyyy')} → {p.date_fin ? format(new Date(p.date_fin+'T12:00:00'), 'dd/MM/yyyy') : 'aujourd’hui'}{p.commentaire ? ` — ${p.commentaire}` : ''}</option>)}
+          </select>
+        ) : (
+          <input type="month" value={filtreMois} onChange={e => setFiltreMois(e.target.value)} className="input text-sm" />
+        )}
       </div>
 
       {/* Filtres type */}

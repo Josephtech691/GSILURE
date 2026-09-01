@@ -78,6 +78,12 @@ export default function AdminDashboard() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  // Gestion du mode période
+  const [periodes, setPeriodes] = useState([]);
+  const [periodeActive, setPeriodeActive] = useState(false);
+  const [periodeSelectionnee, setPeriodeSelectionnee] = useState(null);
+  const [chargementPeriodes, setChargementPeriodes] = useState(true);
+
   // Filtres indépendants pour chaque section
   const [moisRevenus, setMoisRevenus]       = useState(moisStr());
   const [anneeRevenus, setAnneeRevenus]     = useState(String(new Date().getFullYear()));
@@ -97,6 +103,50 @@ export default function AdminDashboard() {
   const [anneePertes, setAnneePertes]       = useState(String(new Date().getFullYear()));
   const [statsPertes, setStatsPertes]       = useState(null);
 
+  // Configuration globale des périodes
+  const chargerPeriodes = async () => {
+    setChargementPeriodes(true);
+    try {
+      const r = await api.get('/periodes');
+      setPeriodes(r.data?.periodes || []);
+      setPeriodeActive(Boolean(r.data?.periode_active));
+      setPeriodeSelectionnee(r.data?.periode || null);
+    } catch (err) {
+      console.error('Chargement périodes:', err);
+    } finally {
+      setChargementPeriodes(false);
+    }
+  };
+
+  useEffect(() => { chargerPeriodes(); }, []);
+
+  const basculerPeriode = async () => {
+    try {
+      const r = await api.patch('/periodes/toggle', { active: !periodeActive });
+      setPeriodeActive(Boolean(r.data?.periode_active));
+      if (r.data?.periode) setPeriodeSelectionnee(r.data.periode);
+      await chargerPeriodes();
+    } catch (err) {
+      console.error(err);
+      alert(err.response?.data?.message || 'Impossible de modifier le mode période.');
+    }
+  };
+
+  const selectionnerPeriode = async (id) => {
+    if (!id) return;
+    try {
+      const r = await api.patch(`/periodes/${id}/selectionner`);
+      setPeriodeActive(true);
+      setPeriodeSelectionnee(r.data?.periode || periodes.find(p => String(p.id) === String(id)) || null);
+      await chargerPeriodes();
+    } catch (err) {
+      console.error(err);
+      alert(err.response?.data?.message || 'Impossible de sélectionner cette période.');
+    }
+  };
+
+  const periodeId = periodeActive ? periodeSelectionnee?.id : null;
+
   // Chargement dashboard journée
   useEffect(() => {
     api.get('/auth/employes').then(r => setEmployes(r.data)).catch(console.error);
@@ -105,12 +155,13 @@ export default function AdminDashboard() {
   useEffect(() => {
     setLoading(true);
     const params = new URLSearchParams({ date });
+    if (periodeId) params.append('periode_id', periodeId);
     if (filtreEmploye) params.append('employe_id', filtreEmploye);
     api.get(`/ventes/dashboard?${params}`)
       .then(r => setData(r.data))
       .catch(console.error)
       .finally(() => setLoading(false));
-  }, [date, filtreEmploye]);
+  }, [date, filtreEmploye, periodeId]);
 
   // Types de stock
   useEffect(() => {
@@ -123,33 +174,39 @@ export default function AdminDashboard() {
   // Revenus — rechargé quand mois/année/filtreStock change
   useEffect(() => {
     const params = new URLSearchParams({ mois: moisRevenus, annee: anneeRevenus });
+    if (periodeId) params.append('periode_id', periodeId);
     if (filtreStock) params.append('type_stock', filtreStock);
     api.get(`/ventes/revenus?${params}`)
       .then(r => setRevenus(r.data))
       .catch(console.error);
-  }, [moisRevenus, anneeRevenus, filtreStock]);
+  }, [moisRevenus, anneeRevenus, filtreStock, periodeId]);
 
   // Argent retiré — rechargé quand moisRetire/anneeRetire change
   useEffect(() => {
-    const params = new URLSearchParams({ mois: moisRetire, annee: anneeRetire });
-    api.get(`/ventes/dashboard?${params}&date=${date}`)
+    const params = new URLSearchParams({ mois: moisRetire, annee: anneeRetire, date });
+    if (periodeId) params.append('periode_id', periodeId);
+    api.get(`/ventes/dashboard?${params}`)
       .then(r => setDataRetire(r.data))
       .catch(console.error);
-  }, [moisRetire, anneeRetire]);
+  }, [moisRetire, anneeRetire, date, periodeId]);
 
   // Ventes journalières — rechargé quand moisVentes change
   useEffect(() => {
-    api.get(`/ventes/journalier?mois=${moisVentes}`)
+    const params = new URLSearchParams({ mois: moisVentes });
+    if (periodeId) params.append('periode_id', periodeId);
+    api.get(`/ventes/journalier?${params}`)
       .then(r => setVentesJour(Array.isArray(r.data) ? r.data : []))
       .catch(console.error);
-  }, [moisVentes]);
+  }, [moisVentes, periodeId]);
 
   // Stats pertes — rechargé quand moisPertes/anneePertes change
   useEffect(() => {
-    api.get(`/pertes/stats?mois=${moisPertes}&annee=${anneePertes}`)
+    const params = new URLSearchParams({ mois: moisPertes, annee: anneePertes });
+    if (periodeId) params.append('periode_id', periodeId);
+    api.get(`/pertes/stats?${params}`)
       .then(r => setStatsPertes(r.data))
       .catch(console.error);
-  }, [moisPertes, anneePertes]);
+  }, [moisPertes, anneePertes, periodeId]);
 
   if (loading) return (
     <div className="flex justify-center py-20">
@@ -176,6 +233,39 @@ export default function AdminDashboard() {
   return (
     <div className="space-y-6 max-w-5xl">
       <h1 className="text-2xl font-bold text-slate-800">Tableau de bord</h1>
+
+      {/* ═══ MODE PÉRIODE ═══ */}
+      <div className={`card p-4 border-l-4 ${periodeActive ? 'border-water-500 bg-water-50/40' : 'border-slate-300 bg-slate-50'}`}>
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <div>
+            <p className="text-sm font-semibold text-slate-700">📅 Période du tableau de bord</p>
+            <p className="text-xs text-slate-500 mt-0.5">
+              {periodeActive && periodeSelectionnee
+                ? `Données calculées du ${format(new Date(periodeSelectionnee.date_debut+'T12:00:00'), 'd MMM yyyy', { locale: fr })} au ${periodeSelectionnee.date_fin ? format(new Date(periodeSelectionnee.date_fin+'T12:00:00'), 'd MMM yyyy', { locale: fr }) : "aujourd'hui"}.`
+                : 'Mode période désactivé : le dashboard conserve son affichage global actuel.'}
+            </p>
+          </div>
+          <button onClick={basculerPeriode} disabled={chargementPeriodes || !periodeSelectionnee}
+            className={`px-3 py-2 rounded-lg text-sm font-medium border transition ${periodeActive ? 'bg-white border-amber-200 text-amber-700 hover:bg-amber-50' : 'bg-water-600 border-water-600 text-white hover:bg-water-700'}`}>
+            {periodeActive ? '⏸ Désactiver la période' : '▶ Activer la période'}
+          </button>
+        </div>
+
+        {periodeActive && (
+          <div className="mt-3 pt-3 border-t border-slate-200/70 flex items-center gap-3 flex-wrap">
+            <label className="text-xs font-semibold text-slate-600">Période affichée :</label>
+            <select value={periodeSelectionnee?.id || ''} onChange={e => selectionnerPeriode(e.target.value)}
+              className="input w-auto text-sm bg-white">
+              {periodes.map(p => (
+                <option key={p.id} value={p.id}>
+                  {format(new Date(p.date_debut+'T12:00:00'), 'dd/MM/yyyy')} → {p.date_fin ? format(new Date(p.date_fin+'T12:00:00'), 'dd/MM/yyyy') : 'en cours'}
+                  {p.commentaire ? ` — ${p.commentaire}` : ''}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+      </div>
 
       {/* ═══ STOCK ═══ */}
       <div className="card p-5">
@@ -333,11 +423,11 @@ export default function AdminDashboard() {
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-slate-700">{emp.employe_nom}</p>
                   <p className="text-xs text-slate-400">
-                    Théorique : {parseInt(emp.total_valeur_theorique||0).toLocaleString('fr')} F
-                    {parseFloat(emp.total_verse_patron||0)>0 && <span className="ml-2 text-purple-500">· Versé -: {parseInt(emp.total_verse_patron).toLocaleString('fr')} F</span>}
-                  </p> {parseFloat(emp.total_retraits||0)>0 &&
+                    {periodeActive ? `Théorique période : ${parseInt(emp.periode_theorique||0).toLocaleString('fr')} F` : `Théorique : ${parseInt(emp.total_valeur_theorique||0).toLocaleString('fr')} F`}
+                    {(periodeActive ? parseFloat(emp.periode_verse_patron||0) : parseFloat(emp.total_verse_patron||0))>0 && <span className="ml-2 text-purple-500">· Versé -: {parseInt(periodeActive ? emp.periode_verse_patron : emp.total_verse_patron).toLocaleString('fr')} F</span>}
+                  </p> {((periodeActive ? parseFloat(emp.periode_retraits||0) : parseFloat(emp.total_retraits||0))>0) &&
                   <p className="text-xs text-slate-400">
-                    Retraits divers : -{parseInt(emp.total_retraits||0).toLocaleString('fr')} F</p>}
+                    Retraits divers : -{parseInt(periodeActive ? emp.periode_retraits : emp.total_retraits).toLocaleString('fr')} F</p>}
                 </div>
                 <div className="text-right">
                   <p className="text-sm font-bold text-water-700">{parseInt(Math.max(0,casseNette)).toLocaleString('fr')} FCFA</p>
@@ -360,22 +450,27 @@ export default function AdminDashboard() {
           </select>
         </div>
         <div className="space-y-3">
-          {/* Argent du mois — sélectionnable */}
+          {/* Argent de la période / du mois */}
           <div className="bg-water-50 border border-water-100 rounded-xl p-4">
-            <div className="flex items-center justify-between mb-1">
-              <p className="text-xs font-semibold text-water-700">📆 Argent du mois</p>
-              <MoisSelect value={moisRevenus} onChange={setMoisRevenus} />
+            <div className="flex items-center justify-between mb-1 gap-2">
+              <p className="text-xs font-semibold text-water-700">{periodeActive ? '📅 Argent de la période' : '📆 Argent du mois'}</p>
+              {periodeActive ? (
+                <select value={periodeSelectionnee?.id || ''} onChange={e => selectionnerPeriode(e.target.value)} className="text-xs border border-slate-200 rounded-lg px-2 py-1 bg-white text-slate-600">
+                  {periodes.map(p => <option key={p.id} value={p.id}>{format(new Date(p.date_debut+'T12:00:00'), 'dd/MM/yyyy')} → {p.date_fin ? format(new Date(p.date_fin+'T12:00:00'), 'dd/MM/yyyy') : 'en cours'}</option>)}
+                </select>
+              ) : <MoisSelect value={moisRevenus} onChange={setMoisRevenus} />}
             </div>
             <p className="text-2xl font-bold text-water-700">{parseInt(revenus?.mois||0).toLocaleString('fr')} F</p>
           </div>
-          {/* Argent de l'année — sélectionnable */}
-          <div className="bg-purple-50 border border-purple-100 rounded-xl p-4">
-            <div className="flex items-center justify-between mb-1">
-              <p className="text-xs font-semibold text-purple-700">🗓️ Argent de l'année</p>
-              <AnneeSelect value={anneeRevenus} onChange={setAnneeRevenus} />
+          {!periodeActive && (
+            <div className="bg-purple-50 border border-purple-100 rounded-xl p-4">
+              <div className="flex items-center justify-between mb-1">
+                <p className="text-xs font-semibold text-purple-700">🗓️ Argent de l'année</p>
+                <AnneeSelect value={anneeRevenus} onChange={setAnneeRevenus} />
+              </div>
+              <p className="text-2xl font-bold text-purple-700">{parseInt(revenus?.annee||0).toLocaleString('fr')} F</p>
             </div>
-            <p className="text-2xl font-bold text-purple-700">{parseInt(revenus?.annee||0).toLocaleString('fr')} F</p>
-          </div>
+          )}
           {/* Argent par stock sélectionné */}
           {filtreStock && (
             <div className="bg-ocean-50 border border-ocean-100 rounded-xl p-4">
@@ -390,11 +485,11 @@ export default function AdminDashboard() {
       <div className="card p-5 space-y-3">
         <h2 className="text-sm font-semibold text-slate-600 uppercase tracking-wide">Argent retiré</h2>
 
-        {/* Ce mois — sélectionnable */}
+        {/* Ce mois / cette période — sélectionnable */}
         <div className="bg-water-50 border border-water-100 rounded-xl p-4">
           <div className="flex items-center justify-between mb-1">
-            <p className="text-xs font-semibold text-water-700">📅 Argent retiré ce mois</p>
-            <MoisSelect value={moisRetire} onChange={setMoisRetire} />
+            <p className="text-xs font-semibold text-water-700">{periodeActive ? '📅 Argent retiré de la période' : '📅 Argent retiré ce mois'}</p>
+            {periodeActive ? <select value={periodeSelectionnee?.id || ''} onChange={e => selectionnerPeriode(e.target.value)} className="text-xs border border-slate-200 rounded-lg px-2 py-1 bg-white text-slate-600">{periodes.map(p => <option key={p.id} value={p.id}>{format(new Date(p.date_debut+'T12:00:00'), 'dd/MM/yyyy')} → {p.date_fin ? format(new Date(p.date_fin+'T12:00:00'), 'dd/MM/yyyy') : 'en cours'}</option>)}</select> : <MoisSelect value={moisRetire} onChange={setMoisRetire} />}
           </div>
           <p className="text-2xl font-bold text-water-700">{argentRetireMois.toLocaleString('fr')} FCFA</p>
           <div className="text-xs text-slate-500 mt-1 space-y-0.5">
@@ -403,6 +498,7 @@ export default function AdminDashboard() {
           </div>
         </div>
 
+        {!periodeActive && (<div>
         {/* Cette année — sélectionnable */}
         <div className="bg-ocean-50 border border-ocean-100 rounded-xl p-4">
           <div className="flex items-center justify-between mb-1">
@@ -415,42 +511,35 @@ export default function AdminDashboard() {
             {parseInt(ccAnnee.encaissements||0)>0 && <p>Versé patron : -{parseInt(ccAnnee.encaissements||0).toLocaleString('fr')} F</p>}
           </div>
         </div>
+        )}
       </div>
 
       {/* ═══ PERTES DE STOCK ═══ */}
       <div className="card p-5">
         <h2 className="text-sm font-semibold text-slate-600 uppercase tracking-wide mb-4">⚠️ Pertes de stock</h2>
         <div className="grid grid-cols-2 gap-3">
-          {/* Kg perdus ce mois */}
           <div className="bg-red-50 border border-red-100 rounded-xl p-4">
-            <div className="flex items-center justify-between mb-1">
-              <p className="text-xs font-semibold text-red-700">Kg perdus ce mois</p>
-              <MoisSelect value={moisPertes} onChange={setMoisPertes} />
+            <div className="flex items-center justify-between mb-1 gap-2">
+              <p className="text-xs font-semibold text-red-700">{periodeActive ? 'Kg perdus de la période' : 'Kg perdus ce mois'}</p>
+              {!periodeActive && <MoisSelect value={moisPertes} onChange={setMoisPertes} />}
+              {periodeActive && <select value={periodeSelectionnee?.id || ''} onChange={e => selectionnerPeriode(e.target.value)} className="text-xs border border-slate-200 rounded-lg px-2 py-1 bg-white text-slate-600">{periodes.map(p => <option key={p.id} value={p.id}>{format(new Date(p.date_debut+'T12:00:00'), 'dd/MM/yyyy')} → {p.date_fin ? format(new Date(p.date_fin+'T12:00:00'), 'dd/MM/yyyy') : 'en cours'}</option>)}</select>}
             </div>
             <p className="text-2xl font-bold text-red-700">{parseFloat(statsPertes?.mois?.kg_perdus||0).toFixed(1)} kg</p>
           </div>
-          {/* Argent perdu ce mois */}
           <div className="bg-red-50 border border-red-100 rounded-xl p-4">
-            <div className="flex items-center justify-between mb-1">
-              <p className="text-xs font-semibold text-red-700">Argent perdu ce mois</p>
-            </div>
+            <p className="text-xs font-semibold text-red-700 mb-1">{periodeActive ? 'Argent perdu de la période' : 'Argent perdu ce mois'}</p>
             <p className="text-2xl font-bold text-red-700">{parseInt(statsPertes?.mois?.valeur_perdue||0).toLocaleString('fr')} F</p>
           </div>
-          {/* Kg perdus cette année */}
-          <div className="bg-orange-50 border border-orange-100 rounded-xl p-4">
-            <div className="flex items-center justify-between mb-1">
-              <p className="text-xs font-semibold text-orange-700">Kg perdus cette année</p>
-              <AnneeSelect value={anneePertes} onChange={setAnneePertes} />
+          {!periodeActive && <>
+            <div className="bg-orange-50 border border-orange-100 rounded-xl p-4">
+              <div className="flex items-center justify-between mb-1"><p className="text-xs font-semibold text-orange-700">Kg perdus cette année</p><AnneeSelect value={anneePertes} onChange={setAnneePertes} /></div>
+              <p className="text-2xl font-bold text-orange-700">{parseFloat(statsPertes?.annee?.kg_perdus||0).toFixed(1)} kg</p>
             </div>
-            <p className="text-2xl font-bold text-orange-700">{parseFloat(statsPertes?.annee?.kg_perdus||0).toFixed(1)} kg</p>
-          </div>
-          {/* Argent perdu cette année */}
-          <div className="bg-orange-50 border border-orange-100 rounded-xl p-4">
-            <div className="flex items-center justify-between mb-1">
-              <p className="text-xs font-semibold text-orange-700">Argent perdu cette année</p>
+            <div className="bg-orange-50 border border-orange-100 rounded-xl p-4">
+              <p className="text-xs font-semibold text-orange-700 mb-1">Argent perdu cette année</p>
+              <p className="text-2xl font-bold text-orange-700">{parseInt(statsPertes?.annee?.valeur_perdue||0).toLocaleString('fr')} F</p>
             </div>
-            <p className="text-2xl font-bold text-orange-700">{parseInt(statsPertes?.annee?.valeur_perdue||0).toLocaleString('fr')} F</p>
-          </div>
+          </>}
         </div>
         {/* Détail par type */}
         {statsPertes?.par_type?.length > 0 && (
@@ -471,8 +560,8 @@ export default function AdminDashboard() {
       {/* ═══ VENTES DU MOIS — sélectionnable ═══ */}
       <div className="card overflow-hidden">
         <div className="px-5 py-3 border-b border-slate-100 flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-slate-600">📊 Les ventes du mois</h2>
-          <MoisSelect value={moisVentes} onChange={setMoisVentes} />
+          <h2 className="text-sm font-semibold text-slate-600">{periodeActive ? "📊 Les ventes de la période" : "📊 Les ventes du mois"}</h2>
+          {periodeActive ? <select value={periodeSelectionnee?.id || } onChange={e => selectionnerPeriode(e.target.value)} className="text-xs border border-slate-200 rounded-lg px-2 py-1 bg-white text-slate-600">{periodes.map(p => <option key={p.id} value={p.id}>{format(new Date(p.date_debut+'T12:00:00'), 'dd/MM/yyyy')} → {p.date_fin ? format(new Date(p.date_fin+'T12:00:00'), 'dd/MM/yyyy') : 'en cours'}</option>)}</select> : <MoisSelect value={moisVentes} onChange={setMoisVentes} />}
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">

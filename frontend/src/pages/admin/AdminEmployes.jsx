@@ -158,9 +158,43 @@ export default function AdminEmployes() {
   const [selectedGraph, setSelectedGraph] = useState(null);
   const [form, setForm] = useState({ nom:'', prenom:'', email:'', password:'', telephone:'' });
   const [creerLoading, setCreerLoading] = useState(false);
+  const [periodes, setPeriodes] = useState([]);
+  const [periodeActive, setPeriodeActive] = useState(false);
+  const [periodeEnCours, setPeriodeEnCours] = useState(null);
+  const [periodeForm, setPeriodeForm] = useState({ date_debut: new Date().toISOString().slice(0,10), date_fin: '', commentaire: '' });
+  const [periodeLoading, setPeriodeLoading] = useState(false);
 
   const charger = () => api.get('/auth/employes').then(r => { setEmployes(r.data); setLoading(false); }).catch(console.error);
-  useEffect(() => { charger(); }, []);
+  useEffect(() => {
+    charger();
+    chargerPeriodes();
+  }, []);
+
+  const chargerPeriodes = async () => {
+    try {
+      const r = await api.get('/periodes');
+      setPeriodes(r.data?.periodes || []);
+      setPeriodeActive(Boolean(r.data?.periode_active));
+      setPeriodeEnCours(r.data?.periode || null);
+    } catch (err) { console.error('Chargement périodes:', err); }
+  };
+
+  const creerPeriode = async (e) => {
+    e.preventDefault();
+    setPeriodeLoading(true);
+    try {
+      await api.post('/periodes', {
+        date_debut: periodeForm.date_debut,
+        date_fin: periodeForm.date_fin || null,
+        commentaire: periodeForm.commentaire.trim() || null,
+      });
+      show('Période créée et activée ✓', 'success');
+      setPeriodeForm({ date_debut: new Date().toISOString().slice(0,10), date_fin: '', commentaire: '' });
+      await chargerPeriodes();
+    } catch (err) {
+      show(err.response?.data?.message || 'Impossible de créer la période.', 'error');
+    } finally { setPeriodeLoading(false); }
+  };
 
   const ouvrirEmploye = async (emp) => {
     setSelected(emp);
@@ -248,6 +282,61 @@ export default function AdminEmployes() {
           </form>
         </div>
       )}
+
+      {/* ═══ PÉRIODES DU DASHBOARD ═══ */}
+      <div className="card p-5 border-l-4 border-water-500">
+        <div className="flex items-start justify-between gap-3 flex-wrap mb-4">
+          <div>
+            <h2 className="text-sm font-semibold text-slate-700">📅 Périodes du dashboard</h2>
+            <p className="text-xs text-slate-400 mt-1">Définissez une période de référence pour les statistiques du tableau de bord. La date de fin peut rester vide pour une période qui continue jusqu'à aujourd'hui.</p>
+          </div>
+          {periodeActive && periodeEnCours && (
+            <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-water-100 text-water-700">● Période active</span>
+          )}
+        </div>
+
+        <form onSubmit={creerPeriode} className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
+          <div>
+            <label className="block text-xs font-medium text-slate-500 mb-1">Jour de début *</label>
+            <input type="date" required max={new Date().toISOString().slice(0,10)} value={periodeForm.date_debut} onChange={e => setPeriodeForm({...periodeForm, date_debut:e.target.value})} className="input" />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-slate-500 mb-1">Jour de fin <span className="font-normal text-slate-400">(facultatif)</span></label>
+            <input type="date" max={new Date().toISOString().slice(0,10)} min={periodeForm.date_debut} value={periodeForm.date_fin} onChange={e => setPeriodeForm({...periodeForm, date_fin:e.target.value})} className="input" />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-slate-500 mb-1">Commentaire</label>
+            <input type="text" maxLength={255} value={periodeForm.commentaire} onChange={e => setPeriodeForm({...periodeForm, commentaire:e.target.value})} className="input" placeholder="Ex. Nouvelle période de gestion" />
+          </div>
+          <div className="md:col-span-3">
+            <button type="submit" disabled={periodeLoading} className="btn-primary">{periodeLoading ? 'Création…' : '+ Créer et activer la période'}</button>
+          </div>
+        </form>
+
+        <div className="mt-5 pt-4 border-t border-slate-100">
+          <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">Historique des périodes</h3>
+          {periodes.length === 0 ? (
+            <p className="text-sm text-slate-400 py-3">Aucune période enregistrée.</p>
+          ) : (
+            <div className="space-y-2">
+              {periodes.map(p => (
+                <div key={p.id} className={`flex items-center gap-3 p-3 rounded-xl border ${periodeEnCours?.id === p.id && periodeActive ? 'border-water-200 bg-water-50/50' : 'border-slate-100 bg-slate-50/50'}`}>
+                  <div className={`w-2 h-2 rounded-full shrink-0 ${periodeEnCours?.id === p.id && periodeActive ? 'bg-water-500' : 'bg-slate-300'}`} />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-slate-700">
+                      {format(new Date(p.date_debut+'T12:00:00'), 'd MMMM yyyy', { locale: fr })}
+                      {' → '}
+                      {p.date_fin ? format(new Date(p.date_fin+'T12:00:00'), 'd MMMM yyyy', { locale: fr }) : 'Aujourd’hui'}
+                    </p>
+                    {p.commentaire && <p className="text-xs text-slate-400 truncate">{p.commentaire}</p>}
+                  </div>
+                  {periodeEnCours?.id === p.id && periodeActive && <span className="text-xs font-medium text-water-600">Active</span>}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
 
       {/* Liste */}
       <div className="card overflow-hidden">
