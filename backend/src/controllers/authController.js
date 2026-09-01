@@ -1,15 +1,11 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const path = require('path');
-const fs = require('fs');
-const { v4: uuidv4 } = require('uuid');
+const streamifier = require('streamifier');
 const db = require('../config/db');
+const { cloudinary, assertCloudinaryConfigured } = require('../config/cloudinary');
 
 const SALT_ROUNDS = 10;
 const TOKEN_EXPIRY = '8h';
-const AVATARS_DIR = path.join(__dirname, '..', 'uploads', 'avatars');
-
-if (!fs.existsSync(AVATARS_DIR)) fs.mkdirSync(AVATARS_DIR, { recursive: true });
 
 const login = async (req, res) => {
   const { email, password } = req.body;
@@ -82,30 +78,57 @@ const changerMotDePasse = async (req, res) => {
   }
 };
 
-// Upload avatar SANS sharp — on sauvegarde directement le fichier
+// Upload avatar vers Cloudinary (stockage persistant, compatible Vercel)
 const uploadAvatar = async (req, res) => {
-  if (!req.file) return res.status(400).json({ message: 'Aucun fichier envoyé.' });
+  if (!req.file) {
+    return res.status(400).json({ message: 'Aucun fichier envoyé.' });
+  }
+
   try {
-    const ext = req.file.mimetype.split('/')[1].replace('jpeg', 'jpg');
-    const filename = `${req.user.id}_${uuidv4()}.${ext}`;
-    const filepath = path.join(AVATARS_DIR, filename);
+    assertCloudinaryConfigured();
 
-    // Supprimer l'ancien avatar
-    const old = await db.query('SELECT photo_url FROM users WHERE id = $1', [req.user.id]);
-    if (old.rows[0]?.photo_url) {
-      const oldFile = path.join(AVATARS_DIR, path.basename(old.rows[0].photo_url));
-      if (fs.existsSync(oldFile)) fs.unlinkSync(oldFile);
-    }
+    const old = await db.query(
+      'SELECT photo_url FROM users WHERE id = $1',
+      [req.user.id]
+    );
 
-    // Sauvegarder le buffer directement
-    fs.writeFileSync(filepath, req.file.buffer);
+    const publicId = `poissonnerie/avatars/${req.user.id}`;
 
-    const photo_url = `/uploads/avatars/${filename}`;
-    await db.query('UPDATE users SET photo_url = $1, updated_at = NOW() WHERE id = $2', [photo_url, req.user.id]);
+    // Upload from Multer memory buffer. overwrite=true keeps one avatar per user.
+    const result = await new Promise((resolve, reject) => {
+      const uploadStream = cloudinary.uploader.upload_stream(
+        {
+          public_id: publicId,
+          overwrite: true,
+          resource_type: 'image',
+          folder: undefined,
+          transformation: [
+            { width: 512, height: 512, crop: 'limit' },
+            { quality: 'auto', fetch_format: 'auto' },
+          ],
+        },
+        (error, uploadResult) => {
+          if (error) return reject(error);
+          resolve(uploadResult);
+        }
+      );
+
+      streamifier.createReadStream(req.file.buffer).pipe(uploadStream);
+    });
+
+    const photo_url = result.secure_url;
+
+    await db.query(
+      'UPDATE users SET photo_url = $1, updated_at = NOW() WHERE id = $2',
+      [photo_url, req.user.id]
+    );
+
     res.json({ message: 'Photo mise à jour.', photo_url });
   } catch (err) {
     console.error('uploadAvatar:', err);
-    res.status(500).json({ message: 'Erreur upload.' });
+    res.status(err.status || 500).json({
+      message: err.message || 'Erreur lors de l’upload de la photo.',
+    });
   }
 };
 
