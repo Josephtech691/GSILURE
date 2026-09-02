@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { format } from 'date-fns';
+import { formatSafeDate } from '../../lib/date';
 import { fr } from 'date-fns/locale';
 import api from '../../lib/api';
 import { getSocket } from '../../lib/socket';
@@ -94,7 +95,7 @@ export default function EmployeGraphique() {
 
   const donnees = (data?.donnees || []).map(d => ({
     ...d,
-    jour: format(new Date(d.date+'T12:00:00'), 'd MMM', { locale: fr }),
+    jour: formatSafeDate(d.date, 'd MMM', { locale: fr }),
     kg_vendus: parseFloat(d.kg_vendus),
     montant_encaisse: parseFloat(d.montant_encaisse),
   }));
@@ -414,7 +415,7 @@ const resteKg = totalKgAchete - totalKgVendu - totalKgPerdu;
                 <p className="text-xs font-medium text-slate-500">Versements approuvés ce mois</p>
                 {data.encaissements.map(e => (
                   <div key={e.id} className="flex justify-between items-center text-sm">
-                    <span className="text-slate-500 text-xs">{e.commentaire || format(new Date(e.created_at), 'd MMM', { locale: fr })}</span>
+                    <span className="text-slate-500 text-xs">{e.commentaire || formatSafeDate(e.created_at, 'd MMM', { locale: fr })}</span>
                     <span className="font-bold text-purple-700 text-xs">{parseInt(e.montant).toLocaleString('fr')} FCFA</span>
                   </div>
                 ))}

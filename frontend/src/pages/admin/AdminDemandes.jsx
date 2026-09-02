@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { formatDistanceToNow, format } from 'date-fns';
 import { fr } from 'date-fns/locale';
+import { formatSafeDate } from '../../lib/date';
 import api from '../../lib/api';
 import { getSocket } from '../../lib/socket';
 import Avatar from '../../components/ui/Avatar';
@@ -111,7 +112,7 @@ export default function AdminDemandes() {
         {modeHistorique === 'periode' ? (
           <select value={filtrePeriode} onChange={e => setFiltrePeriode(e.target.value)} className="input text-sm">
             <option value="">Toutes les périodes</option>
-            {periodes.map(p => <option key={p.id} value={p.id}>{format(new Date(p.date_debut+'T12:00:00'), 'dd/MM/yyyy')} → {p.date_fin ? format(new Date(p.date_fin+'T12:00:00'), 'dd/MM/yyyy') : 'aujourd’hui'}{p.commentaire ? ` — ${p.commentaire}` : ''}</option>)}
+            {periodes.map(p => <option key={p.id} value={p.id}>{formatSafeDate(p.date_debut, 'dd/MM/yyyy')} → {p.date_fin ? formatSafeDate(p.date_fin, 'dd/MM/yyyy') : 'aujourd’hui'}{p.commentaire ? ` — ${p.commentaire}` : ''}</option>)}
           </select>
         ) : (
           <input type="month" value={filtreMois} onChange={e => setFiltreMois(e.target.value)} className="input text-sm" />
@@ -145,7 +146,7 @@ export default function AdminDemandes() {
             let metaData = {};
             try { metaData = d.meta ? (typeof d.meta === 'string' ? JSON.parse(d.meta) : d.meta) : {}; } catch {}
             const createdAtSafe = d.created_at ? (() => { try { return formatDistanceToNow(new Date(d.created_at), { addSuffix: true, locale: fr }); } catch { return ''; } })() : '';
-            const dateCibleSafe = d.date_cible ? (() => { try { return format(new Date(d.date_cible+'T12:00:00'), 'EEEE d MMMM yyyy', { locale: fr }); } catch { return d.date_cible; } })() : '';
+            const dateCibleSafe = d.date_cible ? (() => { try { return formatSafeDate(d.date_cible, 'EEEE d MMMM yyyy', { locale: fr }); } catch { return d.date_cible; } })() : '';
             const expireSafe = expireAt ? (() => { try { return formatDistanceToNow(expireAt, { addSuffix: true, locale: fr }); } catch { return ''; } })() : '';
 
             return (

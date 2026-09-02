@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { format } from 'date-fns';
+import { formatSafeDate } from '../../lib/date';
 import { fr } from 'date-fns/locale';
 import api from '../../lib/api';
 import Chat from '../../components/chat/Chat';
@@ -241,7 +242,7 @@ export default function AdminDashboard() {
             <p className="text-sm font-semibold text-slate-700">📅 Période du tableau de bord</p>
             <p className="text-xs text-slate-500 mt-0.5">
               {periodeActive && periodeSelectionnee
-                ? `Données calculées du ${format(new Date(periodeSelectionnee.date_debut+'T12:00:00'), 'd MMM yyyy', { locale: fr })} au ${periodeSelectionnee.date_fin ? format(new Date(periodeSelectionnee.date_fin+'T12:00:00'), 'd MMM yyyy', { locale: fr }) : "aujourd'hui"}.`
+                ? `Données calculées du ${formatSafeDate(periodeSelectionnee.date_debut, 'd MMM yyyy', { locale: fr })} au ${periodeSelectionnee.date_fin ? formatSafeDate(periodeSelectionnee.date_fin, 'd MMM yyyy', { locale: fr }) : "aujourd'hui"}.`
                 : 'Mode période désactivé : le dashboard conserve son affichage global actuel.'}
             </p>
           </div>
@@ -258,7 +259,7 @@ export default function AdminDashboard() {
               className="input w-auto text-sm bg-white">
               {periodes.map(p => (
                 <option key={p.id} value={p.id}>
-                  {format(new Date(p.date_debut+'T12:00:00'), 'dd/MM/yyyy')} → {p.date_fin ? format(new Date(p.date_fin+'T12:00:00'), 'dd/MM/yyyy') : 'en cours'}
+                  {formatSafeDate(p.date_debut, 'dd/MM/yyyy')} → {p.date_fin ? formatSafeDate(p.date_fin, 'dd/MM/yyyy') : 'en cours'}
                   {p.commentaire ? ` — ${p.commentaire}` : ''}
                 </option>
               ))}
@@ -300,7 +301,7 @@ export default function AdminDashboard() {
       
       {/* ═══ FILTRES JOURNÉE ═══ */}
       <div className="flex items-center justify-between flex-wrap gap-3">
-        <p className="text-sm text-slate-500">{format(new Date(date+'T12:00:00'), 'EEEE d MMMM yyyy', { locale: fr })}</p>
+        <p className="text-sm text-slate-500">{formatSafeDate(date, 'EEEE d MMMM yyyy', { locale: fr })}</p>
         <div className="flex flex-wrap gap-2">
           <select value={filtreEmploye} onChange={e => setFiltreEmploye(e.target.value)} className="input w-auto text-sm">
             <option value="">Tous les employés</option>
@@ -313,7 +314,7 @@ export default function AdminDashboard() {
       {/* ═══ STATS DU JOUR ═══ */}
       <div>
         <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3">
-          Journée du {format(new Date(date+'T12:00:00'), 'd MMM', { locale: fr })}
+          Journée du {formatSafeDate(date, 'd MMM', { locale: fr })}
         </p>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           <StatCard icon="⚖️" label="Kg vendus" value={`${(t.kg_vendus||0).toFixed(1)} kg`} color="ocean" />
@@ -326,7 +327,7 @@ export default function AdminDashboard() {
       {/* ═══ STATS PAR EMPLOYÉ ═══ */}
       <div className="card overflow-hidden">
         <div className="px-5 py-3 border-b border-slate-100">
-          <h2 className="text-sm font-semibold text-slate-600">👥 Par employé — {format(new Date(date+'T12:00:00'), 'd MMMM', { locale: fr })}</h2>
+          <h2 className="text-sm font-semibold text-slate-600">👥 Par employé — {formatSafeDate(date, 'd MMMM', { locale: fr })}</h2>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -358,7 +359,7 @@ export default function AdminDashboard() {
       {(data?.clients_du_jour||[]).length > 0 && (
         <div className="card overflow-hidden">
           <div className="px-5 py-3 border-b border-slate-100 flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-slate-600">🛒 Clients du {format(new Date(date+'T12:00:00'), 'd MMMM', { locale: fr })}</h2>
+            <h2 className="text-sm font-semibold text-slate-600">🛒 Clients du {formatSafeDate(date, 'd MMMM', { locale: fr })}</h2>
             <span className="text-xs bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full">{data.clients_du_jour.length} client{data.clients_du_jour.length>1?'s':''}</span>
           </div>
           <div className="divide-y divide-slate-50">
@@ -456,7 +457,7 @@ export default function AdminDashboard() {
               <p className="text-xs font-semibold text-water-700">{periodeActive ? '📅 Argent de la période' : '📆 Argent du mois'}</p>
               {periodeActive ? (
                 <select value={periodeSelectionnee?.id || ''} onChange={e => selectionnerPeriode(e.target.value)} className="text-xs border border-slate-200 rounded-lg px-2 py-1 bg-white text-slate-600">
-                  {periodes.map(p => <option key={p.id} value={p.id}>{format(new Date(p.date_debut+'T12:00:00'), 'dd/MM/yyyy')} → {p.date_fin ? format(new Date(p.date_fin+'T12:00:00'), 'dd/MM/yyyy') : 'en cours'}</option>)}
+                  {periodes.map(p => <option key={p.id} value={p.id}>{formatSafeDate(p.date_debut, 'dd/MM/yyyy')} → {p.date_fin ? formatSafeDate(p.date_fin, 'dd/MM/yyyy') : 'en cours'}</option>)}
                 </select>
               ) : <MoisSelect value={moisRevenus} onChange={setMoisRevenus} />}
             </div>
@@ -489,7 +490,7 @@ export default function AdminDashboard() {
         <div className="bg-water-50 border border-water-100 rounded-xl p-4">
           <div className="flex items-center justify-between mb-1">
             <p className="text-xs font-semibold text-water-700">{periodeActive ? '📅 Argent retiré de la période' : '📅 Argent retiré ce mois'}</p>
-            {periodeActive ? <select value={periodeSelectionnee?.id || ''} onChange={e => selectionnerPeriode(e.target.value)} className="text-xs border border-slate-200 rounded-lg px-2 py-1 bg-white text-slate-600">{periodes.map(p => <option key={p.id} value={p.id}>{format(new Date(p.date_debut+'T12:00:00'), 'dd/MM/yyyy')} → {p.date_fin ? format(new Date(p.date_fin+'T12:00:00'), 'dd/MM/yyyy') : 'en cours'}</option>)}</select> : <MoisSelect value={moisRetire} onChange={setMoisRetire} />}
+            {periodeActive ? <select value={periodeSelectionnee?.id || ''} onChange={e => selectionnerPeriode(e.target.value)} className="text-xs border border-slate-200 rounded-lg px-2 py-1 bg-white text-slate-600">{periodes.map(p => <option key={p.id} value={p.id}>{formatSafeDate(p.date_debut, 'dd/MM/yyyy')} → {p.date_fin ? formatSafeDate(p.date_fin, 'dd/MM/yyyy') : 'en cours'}</option>)}</select> : <MoisSelect value={moisRetire} onChange={setMoisRetire} />}
           </div>
           <p className="text-2xl font-bold text-water-700">{argentRetireMois.toLocaleString('fr')} FCFA</p>
           <div className="text-xs text-slate-500 mt-1 space-y-0.5">
@@ -523,7 +524,7 @@ export default function AdminDashboard() {
             <div className="flex items-center justify-between mb-1 gap-2">
               <p className="text-xs font-semibold text-red-700">{periodeActive ? 'Kg perdus de la période' : 'Kg perdus ce mois'}</p>
               {!periodeActive && <MoisSelect value={moisPertes} onChange={setMoisPertes} />}
-              {periodeActive && <select value={periodeSelectionnee?.id || ''} onChange={e => selectionnerPeriode(e.target.value)} className="text-xs border border-slate-200 rounded-lg px-2 py-1 bg-white text-slate-600">{periodes.map(p => <option key={p.id} value={p.id}>{format(new Date(p.date_debut+'T12:00:00'), 'dd/MM/yyyy')} → {p.date_fin ? format(new Date(p.date_fin+'T12:00:00'), 'dd/MM/yyyy') : 'en cours'}</option>)}</select>}
+              {periodeActive && <select value={periodeSelectionnee?.id || ''} onChange={e => selectionnerPeriode(e.target.value)} className="text-xs border border-slate-200 rounded-lg px-2 py-1 bg-white text-slate-600">{periodes.map(p => <option key={p.id} value={p.id}>{formatSafeDate(p.date_debut, 'dd/MM/yyyy')} → {p.date_fin ? formatSafeDate(p.date_fin, 'dd/MM/yyyy') : 'en cours'}</option>)}</select>}
             </div>
             <p className="text-2xl font-bold text-red-700">{parseFloat(statsPertes?.mois?.kg_perdus||0).toFixed(1)} kg</p>
           </div>
@@ -562,7 +563,7 @@ export default function AdminDashboard() {
       <div className="card overflow-hidden">
         <div className="px-5 py-3 border-b border-slate-100 flex items-center justify-between">
           <h2 className="text-sm font-semibold text-slate-600">{periodeActive ? "📊 Les ventes de la période" : "📊 Les ventes du mois"}</h2>
-          {periodeActive ? <select value={periodeSelectionnee?.id || ''} onChange={e => selectionnerPeriode(e.target.value)} className="text-xs border border-slate-200 rounded-lg px-2 py-1 bg-white text-slate-600">{periodes.map(p => <option key={p.id} value={p.id}>{format(new Date(p.date_debut+'T12:00:00'), 'dd/MM/yyyy')} → {p.date_fin ? format(new Date(p.date_fin+'T12:00:00'), 'dd/MM/yyyy') : 'en cours'}</option>)}</select> : <MoisSelect value={moisVentes} onChange={setMoisVentes} />}
+          {periodeActive ? <select value={periodeSelectionnee?.id || ''} onChange={e => selectionnerPeriode(e.target.value)} className="text-xs border border-slate-200 rounded-lg px-2 py-1 bg-white text-slate-600">{periodes.map(p => <option key={p.id} value={p.id}>{formatSafeDate(p.date_debut, 'dd/MM/yyyy')} → {p.date_fin ? formatSafeDate(p.date_fin, 'dd/MM/yyyy') : 'en cours'}</option>)}</select> : <MoisSelect value={moisVentes} onChange={setMoisVentes} />}
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -576,7 +577,7 @@ export default function AdminDashboard() {
               {ventesJour.map(v => (
                 <tr key={v.date} className="hover:bg-slate-50 cursor-pointer" onClick={() => setDate(v.date)}>
                   <td className="px-4 py-3 font-medium text-slate-700">
-                    {(() => { try { return format(new Date(v.date+'T12:00:00'), 'EEE d MMM', { locale: fr }); } catch { return v.date; } })()}
+                    {(() => { try { return formatSafeDate(v.date, 'EEE d MMM', { locale: fr }); } catch { return v.date; } })()}
                   </td>
                   <td className="px-4 py-3 text-right">{v.nb_clients}</td>
                   <td className="px-4 py-3 text-right">{parseFloat(v.kg_total||0).toFixed(1)} kg</td>

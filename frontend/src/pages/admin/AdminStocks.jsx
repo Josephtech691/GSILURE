@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { format } from 'date-fns';
+import { formatSafeDate } from '../../lib/date';
 import { fr } from 'date-fns/locale';
 import api from '../../lib/api';
 import { useToast, ToastDisplay } from '../../components/ui/Toast';

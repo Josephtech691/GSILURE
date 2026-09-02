@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { format } from 'date-fns';
+import { formatSafeDate } from '../../lib/date';
 import { fr } from 'date-fns/locale';
 import api from '../../lib/api';
 import { useAuth } from '../../contexts/AuthContext';
@@ -275,7 +276,7 @@ export default function EmployeJournee() {
       <div className="flex items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-bold text-slate-800">Ventes du jour</h1>
-          <p className="text-sm text-slate-500">{format(new Date(date+'T12:00:00'), 'EEEE d MMMM yyyy', { locale: fr })}</p>
+          <p className="text-sm text-slate-500">{formatSafeDate(date, 'EEEE d MMMM yyyy', { locale: fr })}</p>
         </div>
         <input type="date" value={date} max={todayStr()} onChange={e => setDate(e.target.value)} className="input w-auto text-sm" />
       </div>

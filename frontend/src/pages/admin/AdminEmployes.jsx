@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { format } from 'date-fns';
+import { formatSafeDate } from '../../lib/date';
 import { fr } from 'date-fns/locale';
 import api from '../../lib/api';
 import Avatar from '../../components/ui/Avatar';
@@ -20,7 +21,7 @@ function ModalEmploye({ employe, stats, graphique, onClose, onSauvegarder }) {
   };
 
   const donnees = (graphique || []).map(d => ({
-    jour: format(new Date(d.date+'T12:00:00'), 'd MMM', { locale: fr }),
+    jour: formatSafeDate(d.date, 'd MMM', { locale: fr }),
     kg: parseFloat(d.kg_vendus),
     montant: parseFloat(d.montant_encaisse),
   }));
@@ -78,7 +79,7 @@ function ModalEmploye({ employe, stats, graphique, onClose, onSauvegarder }) {
                 <input type="password" value={editForm.nouveau_mdp} onChange={e => setEditForm({...editForm, nouveau_mdp: e.target.value})} className="input" placeholder="6 caractères minimum" />
               </div>
               <div className="text-xs text-slate-400 bg-slate-50 rounded-lg px-3 py-2">
-                Membre depuis le {format(new Date(employe.created_at), 'd MMMM yyyy', { locale: fr })}
+                Membre depuis le {formatSafeDate(employe.created_at, 'd MMMM yyyy', { locale: fr })}
               </div>
               <button onClick={sauvegarder} disabled={loading} className="btn-primary w-full justify-center">
                 {loading ? 'Sauvegarde…' : 'Sauvegarder les modifications'}
@@ -324,9 +325,9 @@ export default function AdminEmployes() {
                   <div className={`w-2 h-2 rounded-full shrink-0 ${periodeEnCours?.id === p.id && periodeActive ? 'bg-water-500' : 'bg-slate-300'}`} />
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-slate-700">
-                      {format(new Date(p.date_debut+'T12:00:00'), 'd MMMM yyyy', { locale: fr })}
+                      {formatSafeDate(p.date_debut, 'd MMMM yyyy', { locale: fr })}
                       {' → '}
-                      {p.date_fin ? format(new Date(p.date_fin+'T12:00:00'), 'd MMMM yyyy', { locale: fr }) : 'Aujourd’hui'}
+                      {p.date_fin ? formatSafeDate(p.date_fin, 'd MMMM yyyy', { locale: fr }) : 'Aujourd’hui'}
                     </p>
                     {p.commentaire && <p className="text-xs text-slate-400 truncate">{p.commentaire}</p>}
                   </div>
