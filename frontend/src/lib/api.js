@@ -1,7 +1,10 @@
 import axios from 'axios';
 import { enqueue, replayQueue } from './offlineQueue';
 
-const BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://gsilures.onrender.com/api' : '/api');
+const BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://back-gsilure.vercel.app/api' : '/api');
+
+// URL publique du backend, utilisée aussi pour les ressources comme les avatars.
+export const API_ORIGIN = BASE_URL.replace(/\/api\/?$/, '');
 
 const api = axios.create({ baseURL: BASE_URL, timeout: 15000 });
 

@@ -1,10 +1,9 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { getSocket, connectSocket } from '../../lib/socket';
-import api from '../../lib/api';
+import api, { API_ORIGIN } from '../../lib/api';
 import Avatar from '../ui/Avatar';
 
-const API_BASE = import.meta.env.VITE_API_URL?.replace('/api','') || '';
 
 export default function Chat({ date }) {
   const { user } = useAuth();
