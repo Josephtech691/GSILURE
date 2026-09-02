@@ -34,7 +34,7 @@ export default function AdminStocks() {
   const [prixLoading, setPrixLoading]   = useState(false);
 
   // ── Pertes ──────────────────────────────────────────────────
-  const [perteForm, setPerteForm]   = useState({ type_perte:'perte_poids', type_stock:'silure', poids_categorie:'', bac_numero:'', kg_perdus:'', commentaire:'' });
+  const [perteForm, setPerteForm]   = useState({ type_perte:'perte_poids', type_stock:'silure', poids_categorie:'', bac_numero:'', kg_perdus:'', commentaire:'', date_perte: new Date().toISOString().split('T')[0] });
   const [perteLoading, setPerteLoading] = useState(false);
   const [pertes, setPertes]         = useState([]);
   const [pertesLoading, setPertesLoading] = useState(false);
@@ -101,7 +101,7 @@ export default function AdminStocks() {
     e.preventDefault(); setPerteLoading(true);
     try {
       const res = await api.post('/pertes', perteForm);
-      setPerteForm({ type_perte:'perte_poids', type_stock:'silure', poids_categorie:'', bac_numero:'', kg_perdus:'', commentaire:'' });
+      setPerteForm({ type_perte:'perte_poids', type_stock:'silure', poids_categorie:'', bac_numero:'', kg_perdus:'', commentaire:'', date_perte: new Date().toISOString().split('T')[0] });
       await chargerPertes();
       show(res.data.message, 'success');
     } catch (err) { show(err.response?.data?.message || 'Erreur', 'error'); }
@@ -455,6 +455,11 @@ export default function AdminStocks() {
                   <label className="block text-xs font-medium text-slate-500 mb-1">Kg perdus *</label>
                   <input type="number" step="0.1" min="0.01" required value={perteForm.kg_perdus}
                     onChange={e => setPerteForm({...perteForm, kg_perdus: e.target.value})} className="input" placeholder="Ex: 2.5" />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-500 mb-1">Date de la perte *</label>
+                  <input type="date" required value={perteForm.date_perte}
+                    onChange={e => setPerteForm({...perteForm, date_perte: e.target.value})} className="input" />
                 </div>
                 <div className="col-span-2">
                   <label className="block text-xs font-medium text-slate-500 mb-1">Commentaire</label>
