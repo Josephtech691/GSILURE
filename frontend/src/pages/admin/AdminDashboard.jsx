@@ -272,7 +272,7 @@ export default function AdminDashboard() {
               {periodes.map(p => (
                 <option key={p.id} value={p.id}>
                   {formatSafeDate(p.date_debut, 'dd/MM/yyyy')} → {p.date_fin ? formatSafeDate(p.date_fin, 'dd/MM/yyyy') : 'en cours'}
-                 {/* {p.commentaire ? ` — ${p.commentaire}` : ''} */}
+                  {/*{p.commentaire ? ` — ${p.commentaire}` : ''}*/}
                 </option>
               ))}
             </select>
@@ -286,7 +286,7 @@ export default function AdminDashboard() {
         <div className="grid grid-cols-3 gap-4">
           <div className="text-center">
             <p className="text-2xl font-bold text-slate-700">{parseFloat(stock.total_kg_achete||0).toFixed(1)}</p>
-            <p className="text-xs text-slate-400 mt-0.5">kg achetés</p>
+            <p className="text-xs text-slate-400 mt-0.5">kg deposer </p>
           </div>
           <div className="text-center border-x border-slate-100">
             <p className="text-2xl font-bold text-ocean-700">{parseFloat(stock.total_kg_vendu||0).toFixed(1)}</p>
@@ -366,8 +366,7 @@ export default function AdminDashboard() {
             </tbody>
           </table>
         </div>
-      </div>
-      */}
+      </div> */}
 
       {/* ═══ CLIENTS DU JOUR ═══ */}
       {(data?.clients_du_jour||[]).length > 0 && (
@@ -446,7 +445,7 @@ export default function AdminDashboard() {
                 <Avatar user={{ nom:emp.employe_nom?.split(' ').slice(-1)[0]||'', prenom:emp.employe_nom?.split(' ')[0]||'' }} size="sm" />
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-slate-700">{emp.employe_nom}</p>
-                  {/*<p className="text-xs text-slate-400">
+                 {/*} <p className="text-xs text-slate-400">
                     {periodeActive ? `Théorique période : ${parseInt(emp.periode_theorique||0).toLocaleString('fr')} F` : `Théorique : ${parseInt(emp.total_valeur_theorique||0).toLocaleString('fr')} F`}
                     {(periodeActive ? parseFloat(emp.periode_verse_patron||0) : parseFloat(emp.total_verse_patron||0))>0 && <span className="ml-2 text-purple-500">· Versé -: {parseInt(periodeActive ? emp.periode_verse_patron : emp.total_verse_patron).toLocaleString('fr')} F</span>}
                   </p> {((periodeActive ? parseFloat(emp.periode_retraits||0) : parseFloat(emp.total_retraits||0))>0) &&
@@ -486,7 +485,7 @@ export default function AdminDashboard() {
               ) : <MoisSelect value={moisRevenus} onChange={setMoisRevenus} />}
             </div>
             <p className="text-2xl font-bold text-water-700">{parseInt(revenus?.mois||0).toLocaleString('fr')} F</p>
-            
+            <p className="text-xs text-slate-400 mt-1">Théorique : {parseInt(revenus?.theorique_mois||0).toLocaleString('fr')} F</p>
           </div>
           {!periodeActive && (
             <div className="bg-purple-50 border border-purple-100 rounded-xl p-4">
@@ -495,6 +494,7 @@ export default function AdminDashboard() {
                 <AnneeSelect value={anneeRevenus} onChange={setAnneeRevenus} />
               </div>
               <p className="text-2xl font-bold text-purple-700">{parseInt(revenus?.annee||0).toLocaleString('fr')} F</p>
+              <p className="text-xs text-slate-400 mt-1">Théorique : {parseInt(revenus?.theorique_annee||0).toLocaleString('fr')} F</p>
             </div>
           )}
           {/* Argent par stock sélectionné */}
@@ -543,7 +543,7 @@ export default function AdminDashboard() {
 
       {/* ═══ RESTES CUMULÉS ═══ */}
       <div className="card p-5">
-        <h2 className="text-sm font-semibold text-slate-600 uppercase tracking-wide mb-4">🧾 Restes non recu des ventes</h2>
+        <h2 className="text-sm font-semibold text-slate-600 uppercase tracking-wide mb-4">🧾 Restes cumulés</h2>
         <div className="space-y-3">
           <div className="bg-amber-50 border border-amber-100 rounded-xl p-4">
             <div className="flex items-center justify-between mb-1 gap-2">
