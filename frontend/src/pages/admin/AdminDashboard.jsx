@@ -103,6 +103,9 @@ export default function AdminDashboard() {
   const [moisPertes, setMoisPertes]         = useState(moisStr());
   const [anneePertes, setAnneePertes]       = useState(String(new Date().getFullYear()));
   const [statsPertes, setStatsPertes]       = useState(null);
+  const [moisRestes, setMoisRestes]         = useState(moisStr());
+  const [anneeRestes, setAnneeRestes]       = useState(String(new Date().getFullYear()));
+  const [statsRestes, setStatsRestes]       = useState(null);
 
   // Configuration globale des périodes
   const chargerPeriodes = async () => {
@@ -209,6 +212,15 @@ export default function AdminDashboard() {
       .catch(console.error);
   }, [moisPertes, anneePertes, periodeId]);
 
+  // Stats restes — rechargé quand moisRestes/anneeRestes change
+  useEffect(() => {
+    const params = new URLSearchParams({ mois: moisRestes, annee: anneeRestes });
+    if (periodeId) params.append('periode_id', periodeId);
+    api.get(`/ventes/restes/stats?${params}`)
+      .then(r => setStatsRestes(r.data))
+      .catch(console.error);
+  }, [moisRestes, anneeRestes, periodeId]);
+
   if (loading) return (
     <div className="flex justify-center py-20">
       <div className="w-8 h-8 border-4 border-ocean-500 border-t-transparent rounded-full animate-spin" />
@@ -260,7 +272,7 @@ export default function AdminDashboard() {
               {periodes.map(p => (
                 <option key={p.id} value={p.id}>
                   {formatSafeDate(p.date_debut, 'dd/MM/yyyy')} → {p.date_fin ? formatSafeDate(p.date_fin, 'dd/MM/yyyy') : 'en cours'}
-  
+                 {/* {p.commentaire ? ` — ${p.commentaire}` : ''} */}
                 </option>
               ))}
             </select>
@@ -323,7 +335,7 @@ export default function AdminDashboard() {
           <StatCard icon="⚠️" label="Reste à percevoir" value={`${parseInt((t.kg_vendus||0)*2500-(t.ca_total||0)).toLocaleString('fr')} F`} color="amber" />
         </div>
       </div>
-      
+
       {/* ═══ STATS PAR EMPLOYÉ ═══ */}
       {/*
       <div className="card overflow-hidden">
@@ -354,7 +366,8 @@ export default function AdminDashboard() {
             </tbody>
           </table>
         </div>
-      </div>/*}
+      </div>
+      */}
 
       {/* ═══ CLIENTS DU JOUR ═══ */}
       {(data?.clients_du_jour||[]).length > 0 && (
@@ -417,17 +430,30 @@ export default function AdminDashboard() {
         </div>
         <div className="divide-y divide-slate-50">
           {casse.map(emp => {
-            const casseBrute = parseFloat(emp.total_encaisse_ventes||0)+parseFloat(emp.total_ajouts||0)-parseFloat(emp.total_retraits||0);
-            const casseNette = casseBrute - parseFloat(emp.total_verse_patron||0);
+            let casseNette;
+            if (periodeActive) {
+              casseNette = parseFloat(emp.caisse_debut_periode||0)
+                + parseFloat(emp.periode_encaisse||0)
+                + parseFloat(emp.periode_ajouts||0)
+                - parseFloat(emp.periode_retraits||0)
+                - parseFloat(emp.periode_verse_patron||0);
+            } else {
+              const casseBrute = parseFloat(emp.total_encaisse_ventes||0)+parseFloat(emp.total_ajouts||0)-parseFloat(emp.total_retraits||0);
+              casseNette = casseBrute - parseFloat(emp.total_verse_patron||0);
+            }
             return (
               <div key={emp.employe_id} className="flex items-center px-5 py-3 gap-4">
                 <Avatar user={{ nom:emp.employe_nom?.split(' ').slice(-1)[0]||'', prenom:emp.employe_nom?.split(' ')[0]||'' }} size="sm" />
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-slate-700">{emp.employe_nom}</p>
-                
-
-                 
-                </div>
+                  {/*<p className="text-xs text-slate-400">
+                    {periodeActive ? `Théorique période : ${parseInt(emp.periode_theorique||0).toLocaleString('fr')} F` : `Théorique : ${parseInt(emp.total_valeur_theorique||0).toLocaleString('fr')} F`}
+                    {(periodeActive ? parseFloat(emp.periode_verse_patron||0) : parseFloat(emp.total_verse_patron||0))>0 && <span className="ml-2 text-purple-500">· Versé -: {parseInt(periodeActive ? emp.periode_verse_patron : emp.total_verse_patron).toLocaleString('fr')} F</span>}
+                  </p> {((periodeActive ? parseFloat(emp.periode_retraits||0) : parseFloat(emp.total_retraits||0))>0) &&
+                  <p className="text-xs text-slate-400">
+                    Retraits divers : -{parseInt(periodeActive ? emp.periode_retraits : emp.total_retraits).toLocaleString('fr')} F</p>}
+                  */}
+                    </div>
                 <div className="text-right">
                   <p className="text-sm font-bold text-water-700">{parseInt(Math.max(0,casseNette)).toLocaleString('fr')} FCFA</p>
                   <p className="text-xs text-slate-400">en caisse</p>
@@ -512,6 +538,27 @@ export default function AdminDashboard() {
         </div>
         </div>
         )}
+      </div>
+
+      {/* ═══ RESTES CUMULÉS ═══ */}
+      <div className="card p-5">
+        <h2 className="text-sm font-semibold text-slate-600 uppercase tracking-wide mb-4">🧾 Restes non recu des ventes</h2>
+        <div className="space-y-3">
+          <div className="bg-amber-50 border border-amber-100 rounded-xl p-4">
+            <div className="flex items-center justify-between mb-1 gap-2">
+              <p className="text-xs font-semibold text-amber-700">{periodeActive ? 'Reste cumulé de la période' : 'Reste cumulé du mois'}</p>
+              {!periodeActive && <MoisSelect value={moisRestes} onChange={setMoisRestes} />}
+              {periodeActive && <select value={periodeSelectionnee?.id || ''} onChange={e => selectionnerPeriode(e.target.value)} className="text-xs border border-slate-200 rounded-lg px-2 py-1 bg-white text-slate-600">{periodes.map(p => <option key={p.id} value={p.id}>{formatSafeDate(p.date_debut, 'dd/MM/yyyy')} → {p.date_fin ? formatSafeDate(p.date_fin, 'dd/MM/yyyy') : 'en cours'}</option>)}</select>}
+            </div>
+            <p className="text-2xl font-bold text-amber-700">{parseInt(statsRestes?.mois?.reste_cumule||0).toLocaleString('fr')} F</p>
+          </div>
+          {!periodeActive && (
+            <div className="bg-orange-50 border border-orange-100 rounded-xl p-4">
+              <div className="flex items-center justify-between mb-1"><p className="text-xs font-semibold text-orange-700">Reste cumulé cette année</p><AnneeSelect value={anneeRestes} onChange={setAnneeRestes} /></div>
+              <p className="text-2xl font-bold text-orange-700">{parseInt(statsRestes?.annee?.reste_cumule||0).toLocaleString('fr')} F</p>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* ═══ PERTES DE STOCK ═══ */}
