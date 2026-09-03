@@ -260,7 +260,7 @@ export default function AdminDashboard() {
               {periodes.map(p => (
                 <option key={p.id} value={p.id}>
                   {formatSafeDate(p.date_debut, 'dd/MM/yyyy')} → {p.date_fin ? formatSafeDate(p.date_fin, 'dd/MM/yyyy') : 'en cours'}
-                  {p.commentaire ? ` — ${p.commentaire}` : ''}
+  
                 </option>
               ))}
             </select>
