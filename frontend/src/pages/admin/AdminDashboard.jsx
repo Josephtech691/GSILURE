@@ -323,8 +323,9 @@ export default function AdminDashboard() {
           <StatCard icon="⚠️" label="Reste à percevoir" value={`${parseInt((t.kg_vendus||0)*2500-(t.ca_total||0)).toLocaleString('fr')} F`} color="amber" />
         </div>
       </div>
-
+      
       {/* ═══ STATS PAR EMPLOYÉ ═══ */}
+      {/*
       <div className="card overflow-hidden">
         <div className="px-5 py-3 border-b border-slate-100">
           <h2 className="text-sm font-semibold text-slate-600">👥 Par employé — {formatSafeDate(date, 'd MMMM', { locale: fr })}</h2>
@@ -353,7 +354,7 @@ export default function AdminDashboard() {
             </tbody>
           </table>
         </div>
-      </div>
+      </div>/*}
 
       {/* ═══ CLIENTS DU JOUR ═══ */}
       {(data?.clients_du_jour||[]).length > 0 && (
@@ -424,7 +425,7 @@ export default function AdminDashboard() {
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-slate-700">{emp.employe_nom}</p>
                   <p className="text-xs text-slate-400">
-                    {periodeActive ? `Théorique période : ${parseInt(emp.periode_theorique||0).toLocaleString('fr')} F` : `Théorique : ${parseInt(emp.total_valeur_theorique||0).toLocaleString('fr')} F`}
+
                     {(periodeActive ? parseFloat(emp.periode_verse_patron||0) : parseFloat(emp.total_verse_patron||0))>0 && <span className="ml-2 text-purple-500">· Versé -: {parseInt(periodeActive ? emp.periode_verse_patron : emp.total_verse_patron).toLocaleString('fr')} F</span>}
                   </p> {((periodeActive ? parseFloat(emp.periode_retraits||0) : parseFloat(emp.total_retraits||0))>0) &&
                   <p className="text-xs text-slate-400">
