@@ -413,7 +413,7 @@ export default function AdminDashboard() {
            {/* ═══ CASSE EMPLOYÉS ═══ */}
       <div className="card overflow-hidden">
         <div className="px-5 py-3 border-b border-slate-100">
-          <h2 className="text-sm font-semibold text-slate-600">💼 Casse — Argent total détenu par employé</h2>
+          <h2 className="text-sm font-semibold text-slate-600">💼 Caisse — Argent total détenu par employé</h2>
         </div>
         <div className="divide-y divide-slate-50">
           {casse.map(emp => {
