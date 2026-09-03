@@ -486,9 +486,7 @@ export default function AdminDashboard() {
               ) : <MoisSelect value={moisRevenus} onChange={setMoisRevenus} />}
             </div>
             <p className="text-2xl font-bold text-water-700">{parseInt(revenus?.mois||0).toLocaleString('fr')} F</p>
-            <p className="text-xs text-slate-400">
-                    {periodeActive ? `Théorique période : ${parseInt(emp.periode_theorique||0).toLocaleString('fr')} F` : `Théorique : ${parseInt(emp.total_valeur_theorique||0).toLocaleString('fr')} F`}
-            </p>
+            
           </div>
           {!periodeActive && (
             <div className="bg-purple-50 border border-purple-100 rounded-xl p-4">
