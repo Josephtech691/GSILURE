@@ -162,7 +162,7 @@ export default function AdminEmployes() {
   const [periodes, setPeriodes] = useState([]);
   const [periodeActive, setPeriodeActive] = useState(false);
   const [periodeEnCours, setPeriodeEnCours] = useState(null);
-  const [periodeForm, setPeriodeForm] = useState({ date_debut: new Date().toISOString().slice(0,10), date_fin: '', commentaire: '' });
+  const [periodeForm, setPeriodeForm] = useState({ date_debut: new Date().toISOString().slice(0,10), date_fin: '', commentaire: '', stock_depart_kg: '', caisse_depart: '' });
   const [periodeLoading, setPeriodeLoading] = useState(false);
 
   const charger = () => api.get('/auth/employes').then(r => { setEmployes(r.data); setLoading(false); }).catch(console.error);
@@ -188,9 +188,11 @@ export default function AdminEmployes() {
         date_debut: periodeForm.date_debut,
         date_fin: periodeForm.date_fin || null,
         commentaire: periodeForm.commentaire.trim() || null,
+        stock_depart_kg: periodeForm.stock_depart_kg || 0,
+        caisse_depart: periodeForm.caisse_depart || 0,
       });
       show('Période créée et activée ✓', 'success');
-      setPeriodeForm({ date_debut: new Date().toISOString().slice(0,10), date_fin: '', commentaire: '' });
+      setPeriodeForm({ date_debut: new Date().toISOString().slice(0,10), date_fin: '', commentaire: '', stock_depart_kg: '', caisse_depart: '' });
       await chargerPeriodes();
     } catch (err) {
       show(err.response?.data?.message || 'Impossible de créer la période.', 'error');
@@ -308,6 +310,14 @@ export default function AdminEmployes() {
           <div>
             <label className="block text-xs font-medium text-slate-500 mb-1">Commentaire</label>
             <input type="text" maxLength={255} value={periodeForm.commentaire} onChange={e => setPeriodeForm({...periodeForm, commentaire:e.target.value})} className="input" placeholder="Ex. Nouvelle période de gestion" />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-slate-500 mb-1">Stock de départ (kg) <span className="font-normal text-slate-400">(compté à la main)</span></label>
+            <input type="number" step="0.1" min="0" value={periodeForm.stock_depart_kg} onChange={e => setPeriodeForm({...periodeForm, stock_depart_kg:e.target.value})} className="input" placeholder="Ex. 78" />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-slate-500 mb-1">Caisse de départ (F) <span className="font-normal text-slate-400">(compté à la main)</span></label>
+            <input type="number" step="1" min="0" value={periodeForm.caisse_depart} onChange={e => setPeriodeForm({...periodeForm, caisse_depart:e.target.value})} className="input" placeholder="Ex. 0" />
           </div>
           <div className="md:col-span-3">
             <button type="submit" disabled={periodeLoading} className="btn-primary">{periodeLoading ? 'Création…' : '+ Créer et activer la période'}</button>
