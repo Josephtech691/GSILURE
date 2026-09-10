@@ -272,7 +272,7 @@ export default function AdminDashboard() {
               {periodes.map(p => (
                 <option key={p.id} value={p.id}>
                   {formatSafeDate(p.date_debut, 'dd/MM/yyyy')} → {p.date_fin ? formatSafeDate(p.date_fin, 'dd/MM/yyyy') : 'en cours'}
-                  {/*{p.commentaire ? ` — ${p.commentaire}` : ''}*/}
+                  {p.commentaire ? ` — ${p.commentaire}` : ''}
                 </option>
               ))}
             </select>
@@ -280,21 +280,46 @@ export default function AdminDashboard() {
         )}
       </div>
 
+      {/* ═══ VALEURS DE DÉPART DE LA PÉRIODE ═══ */}
+      {periodeActive && (
+        <div className="card p-5">
+          <div className="flex items-center justify-between mb-4 gap-2">
+            <h2 className="text-sm font-semibold text-slate-600 uppercase tracking-wide">🏁 Valeurs de départ de la période</h2>
+            <select value={periodeSelectionnee?.id || ''} onChange={e => selectionnerPeriode(e.target.value)} className="text-xs border border-slate-200 rounded-lg px-2 py-1 bg-white text-slate-600">
+              {periodes.map(p => <option key={p.id} value={p.id}>{formatSafeDate(p.date_debut, 'dd/MM/yyyy')} → {p.date_fin ? formatSafeDate(p.date_fin, 'dd/MM/yyyy') : 'en cours'}</option>)}
+            </select>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="bg-slate-50 border border-slate-100 rounded-xl p-4 text-center">
+              <p className="text-2xl font-bold text-slate-700">{parseFloat(periodeSelectionnee?.stock_depart_kg||0).toFixed(1)} kg</p>
+              <p className="text-xs text-slate-400 mt-0.5">Stock de départ</p>
+            </div>
+            <div className="bg-slate-50 border border-slate-100 rounded-xl p-4 text-center">
+              <p className="text-2xl font-bold text-slate-700">{parseInt(periodeSelectionnee?.caisse_depart||0).toLocaleString('fr')} F</p>
+              <p className="text-xs text-slate-400 mt-0.5">Caisse de départ</p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ═══ STOCK ═══ */}
       <div className="card p-5">
         <h2 className="text-sm font-semibold text-slate-600 mb-4">📦 État du stock global</h2>
         <div className="grid grid-cols-3 gap-4">
           <div className="text-center">
             <p className="text-2xl font-bold text-slate-700">{parseFloat(stock.total_kg_achete||0).toFixed(1)}</p>
-            <p className="text-xs text-slate-400 mt-0.5">kg deposer </p>
+            <p className="text-xs text-slate-400 mt-0.5">kg achetés</p>
+            <p className="text-xs text-slate-400 mt-0.5">{parseInt((parseFloat(stock.total_kg_achete||0))*2500).toLocaleString('fr')} F</p>
           </div>
           <div className="text-center border-x border-slate-100">
             <p className="text-2xl font-bold text-ocean-700">{parseFloat(stock.total_kg_vendu||0).toFixed(1)}</p>
             <p className="text-xs text-slate-400 mt-0.5">kg vendus</p>
+            <p className="text-xs text-slate-400 mt-0.5">{parseInt((parseFloat(stock.total_kg_vendu||0))*2500).toLocaleString('fr')} F</p>
           </div>
           <div className={`text-center ${parseFloat(stock.reste_kg||0)<20?'text-red-600':'text-water-700'}`}>
             <p className="text-2xl font-bold">{parseFloat(stock.reste_kg||0).toFixed(1)}</p>
             <p className="text-xs text-slate-400 mt-0.5">kg restants</p>
+            <p className="text-xs text-slate-400 mt-0.5">{parseInt((parseFloat(stock.reste_kg||0))*2500).toLocaleString('fr')} F</p>
           </div>
         </div>
         {parseFloat(stock.total_kg_achete||0)>0 && (
@@ -337,7 +362,6 @@ export default function AdminDashboard() {
       </div>
 
       {/* ═══ STATS PAR EMPLOYÉ ═══ */}
-      {/*
       <div className="card overflow-hidden">
         <div className="px-5 py-3 border-b border-slate-100">
           <h2 className="text-sm font-semibold text-slate-600">👥 Par employé — {formatSafeDate(date, 'd MMMM', { locale: fr })}</h2>
@@ -366,7 +390,7 @@ export default function AdminDashboard() {
             </tbody>
           </table>
         </div>
-      </div> */}
+      </div>
 
       {/* ═══ CLIENTS DU JOUR ═══ */}
       {(data?.clients_du_jour||[]).length > 0 && (
@@ -425,7 +449,7 @@ export default function AdminDashboard() {
            {/* ═══ CASSE EMPLOYÉS ═══ */}
       <div className="card overflow-hidden">
         <div className="px-5 py-3 border-b border-slate-100">
-          <h2 className="text-sm font-semibold text-slate-600">💼 Caisse — Argent total détenu par employé</h2>
+          <h2 className="text-sm font-semibold text-slate-600">💼 Casse — Argent total détenu par employé</h2>
         </div>
         <div className="divide-y divide-slate-50">
           {casse.map(emp => {
@@ -445,14 +469,13 @@ export default function AdminDashboard() {
                 <Avatar user={{ nom:emp.employe_nom?.split(' ').slice(-1)[0]||'', prenom:emp.employe_nom?.split(' ')[0]||'' }} size="sm" />
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-slate-700">{emp.employe_nom}</p>
-                 {/*} <p className="text-xs text-slate-400">
+                  <p className="text-xs text-slate-400">
                     {periodeActive ? `Théorique période : ${parseInt(emp.periode_theorique||0).toLocaleString('fr')} F` : `Théorique : ${parseInt(emp.total_valeur_theorique||0).toLocaleString('fr')} F`}
                     {(periodeActive ? parseFloat(emp.periode_verse_patron||0) : parseFloat(emp.total_verse_patron||0))>0 && <span className="ml-2 text-purple-500">· Versé -: {parseInt(periodeActive ? emp.periode_verse_patron : emp.total_verse_patron).toLocaleString('fr')} F</span>}
                   </p> {((periodeActive ? parseFloat(emp.periode_retraits||0) : parseFloat(emp.total_retraits||0))>0) &&
                   <p className="text-xs text-slate-400">
                     Retraits divers : -{parseInt(periodeActive ? emp.periode_retraits : emp.total_retraits).toLocaleString('fr')} F</p>}
-                  */}
-                    </div>
+                </div>
                 <div className="text-right">
                   <p className="text-sm font-bold text-water-700">{parseInt(Math.max(0,casseNette)).toLocaleString('fr')} FCFA</p>
                   <p className="text-xs text-slate-400">en caisse</p>
