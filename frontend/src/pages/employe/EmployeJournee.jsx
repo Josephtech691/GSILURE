@@ -156,6 +156,10 @@ export default function EmployeJournee() {
   const [loading, setLoading] = useState(true);
   const [ajoutLoading, setAjoutLoading] = useState(false);
   const [nouveauClient, setNouveauClient] = useState(null);
+  const [suggestionsClient, setSuggestionsClient] = useState([]);
+  const [showClientImportant, setShowClientImportant] = useState(false);
+  const [clientImportantForm, setClientImportantForm] = useState({ nom:'', telephone:'', type:'simple', commentaire:'' });
+  const [clientImportantLoading, setClientImportantLoading] = useState(false);
   const [showDemandeForm, setShowDemandeForm] = useState(false);
   const [demandeMotif, setDemandeMotif] = useState('');
   const [stockTypes, setStockTypes] = useState([]);
@@ -192,6 +196,19 @@ export default function EmployeJournee() {
       total_recu: acc.total_recu + parseFloat(c.montant_recu||0),
       valeur_theorique: acc.valeur_theorique + parseFloat(c.kg_achetes||0)*PRIX_KG,
     }), { total_kg:0, total_recu:0, valeur_theorique:0 }));
+  };
+
+  const enregistrerClientImportant = async () => {
+    if (!clientImportantForm.nom.trim()) { show('Nom requis', 'error'); return; }
+    setClientImportantLoading(true);
+    try {
+      await api.post('/clients', clientImportantForm);
+      setNouveauClient(nc => nc ? { ...nc, client_nom: clientImportantForm.nom.trim().toUpperCase() } : nc);
+      setShowClientImportant(false);
+      setClientImportantForm({ nom:'', telephone:'', type:'simple', commentaire:'' });
+      show('Client enregistré ✓', 'success');
+    } catch (err) { show(err.response?.data?.message || 'Erreur', 'error'); }
+    finally { setClientImportantLoading(false); }
   };
 
   const ajouterClient = async (e) => {
@@ -343,22 +360,54 @@ export default function EmployeJournee() {
             <div className="card p-4 border-l-4 border-water-500">
               <div className="flex justify-between items-center mb-3">
                 <span className="font-semibold text-sm text-slate-700">Client {clients.length + 1} — Nouveau</span>
-                <button onClick={() => setNouveauClient({ kg_achetes:'', montant_recu:'', heure_approx: new Date().toTimeString().slice(0,5), commentaire:'', type_stock: '' })}
-  className="btn-primary w-full py-3 justify-center text-base">
-  + Nouveau Client
-</button>
               </div>
               <form onSubmit={ajouterClient} className="space-y-3">
+                {/* Nom du client + autocomplete + Client important */}
+                <div className="relative">
+                  <label className="block text-xs font-medium text-slate-500 mb-1">Nom du client</label>
+                  <div className="flex gap-2">
+                    <input type="text" value={nouveauClient.client_nom}
+                      onChange={e => {
+                        const val = e.target.value.toUpperCase();
+                        setNouveauClient({...nouveauClient, client_nom: val});
+                        clearTimeout(window.__clientSearchTimeout);
+                        if (val.trim().length < 1) { setSuggestionsClient([]); return; }
+                        window.__clientSearchTimeout = setTimeout(() => {
+                          api.get(`/clients/recherche?q=${encodeURIComponent(val)}`)
+                            .then(r => setSuggestionsClient(r.data || []))
+                            .catch(() => setSuggestionsClient([]));
+                        }, 250);
+                      }}
+                      onFocus={() => nouveauClient.client_nom && nouveauClient.client_nom !== 'INCONNU' && setSuggestionsClient(s => s)}
+                      placeholder="INCONNU" className="input flex-1 uppercase" />
+                    <button type="button" onClick={() => setShowClientImportant(true)}
+                      className="px-3 py-2 rounded-lg border-2 border-amber-300 bg-amber-50 text-amber-700 text-xs font-semibold whitespace-nowrap hover:bg-amber-100">
+                      ⭐ Client important
+                    </button>
+                  </div>
+                  {suggestionsClient.length > 0 && (
+                    <div className="absolute z-10 mt-1 w-full bg-white border border-slate-200 rounded-lg shadow-lg max-h-40 overflow-y-auto">
+                      {suggestionsClient.map(s => (
+                        <button type="button" key={s}
+                          onClick={() => { setNouveauClient({...nouveauClient, client_nom: s}); setSuggestionsClient([]); }}
+                          className="block w-full text-left px-3 py-2 text-sm hover:bg-slate-50 border-b border-slate-50 last:border-0">
+                          {s}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
                 <div className="grid grid-cols-2 gap-3">
-                  <div><label className="block text-xs font-medium text-slate-500 mb-1">Kg achetés *</label>
                   <div>
-  <label className="block text-xs font-medium text-slate-500 mb-1">Type de stock *</label>
-  <select required value={nouveauClient.type_stock}
-    onChange={e => setNouveauClient({...nouveauClient, type_stock: e.target.value})} className="input">
-    <option value="">Sélectionner…</option>
-    {stockTypes.map(t => <option key={t} value={t}>{t}</option>)}
-  </select>
-</div>
+                    <label className="block text-xs font-medium text-slate-500 mb-1">Type de stock *</label>
+                    <select required value={nouveauClient.type_stock}
+                      onChange={e => setNouveauClient({...nouveauClient, type_stock: e.target.value})} className="input">
+                      <option value="">Sélectionner…</option>
+                      {stockTypes.map(t => <option key={t} value={t}>{t}</option>)}
+                    </select>
+                  </div>
+                  <div><label className="block text-xs font-medium text-slate-500 mb-1">Kg achetés *</label>
                     <input type="number" step="0.1" min="0.1" required autoFocus value={nouveauClient.kg_achetes}
                       onChange={e => setNouveauClient({...nouveauClient, kg_achetes: e.target.value})} className="input" /></div>
                   <div><label className="block text-xs font-medium text-slate-500 mb-1">Montant reçu (FCFA) *</label>
@@ -381,17 +430,54 @@ export default function EmployeJournee() {
                     )}
                   </div>
                 )}
-                <button type="submit" disabled={ajoutLoading} className="btn-success w-full py-2.5 justify-center">
-                  {ajoutLoading ? 'Enregistrement…' : '✓ Enregistrer ce client'}
-                </button>
+                <div className="flex gap-2">
+                  <button type="submit" disabled={ajoutLoading} className="btn-success flex-1 py-2.5 justify-center">
+                    {ajoutLoading ? 'Enregistrement…' : '✓ Enregistrer ce client'}
+                  </button>
+                  <button type="button" onClick={() => setNouveauClient(null)} className="px-4 py-2.5 rounded-lg border border-slate-200 text-sm text-slate-500 hover:bg-slate-50">
+                    Annuler
+                  </button>
+                </div>
               </form>
+
+              {/* Mini-formulaire "Client important" */}
+              {showClientImportant && (
+                <div className="mt-4 pt-4 border-t border-amber-200 bg-amber-50/50 -mx-4 -mb-4 px-4 pb-4 rounded-b-lg">
+                  <p className="text-sm font-semibold text-amber-800 mb-2">⭐ Enregistrer ce client</p>
+                  <div className="space-y-2">
+                    <input type="text" placeholder="Nom du client" value={clientImportantForm.nom}
+                      onChange={e => setClientImportantForm({...clientImportantForm, nom: e.target.value.toUpperCase()})}
+                      className="input uppercase" />
+                    <input type="text" placeholder="Numéro de téléphone" value={clientImportantForm.telephone}
+                      onChange={e => setClientImportantForm({...clientImportantForm, telephone: e.target.value})}
+                      className="input" />
+                    <select value={clientImportantForm.type}
+                      onChange={e => setClientImportantForm({...clientImportantForm, type: e.target.value})} className="input">
+                      <option value="simple">Simple</option>
+                      <option value="revendeur">Revendeur</option>
+                      <option value="fournisseur">Fournisseur</option>
+                    </select>
+                    <textarea placeholder="Commentaire décrivant ce client" value={clientImportantForm.commentaire}
+                      onChange={e => setClientImportantForm({...clientImportantForm, commentaire: e.target.value})}
+                      className="input" rows={2} />
+                    <div className="flex gap-2">
+                      <button type="button" onClick={enregistrerClientImportant} disabled={clientImportantLoading}
+                        className="btn-primary flex-1 py-2 justify-center text-sm">
+                        {clientImportantLoading ? 'Enregistrement…' : 'Enregistrer la fiche'}
+                      </button>
+                      <button type="button" onClick={() => setShowClientImportant(false)}
+                        className="px-3 py-2 rounded-lg border border-slate-200 text-sm text-slate-500">Fermer</button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
           {canEdit && !nouveauClient && (
             <div className="grid grid-cols-2 gap-3">
               <button
-                onClick={() => setNouveauClient({ kg_achetes:'', montant_recu:'', heure_approx: new Date().toTimeString().slice(0,5), commentaire:'' })}
+                onClick={() => setNouveauClient({ kg_achetes:'', montant_recu:'', heure_approx: new Date().toTimeString().slice(0,5), commentaire:'', client_nom: 'INCONNU' })}
                 className="btn-primary py-3 justify-center text-sm">
                 + Nouveau Client
               </button>
