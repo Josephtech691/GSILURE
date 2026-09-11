@@ -272,7 +272,7 @@ export default function AdminDashboard() {
               {periodes.map(p => (
                 <option key={p.id} value={p.id}>
                   {formatSafeDate(p.date_debut, 'dd/MM/yyyy')} → {p.date_fin ? formatSafeDate(p.date_fin, 'dd/MM/yyyy') : 'en cours'}
-      
+                  {p.commentaire ? ` — ${p.commentaire}` : ''}
                 </option>
               ))}
             </select>
@@ -409,6 +409,7 @@ export default function AdminDashboard() {
                     <span className="inline-flex items-center px-2.5 py-0.5 rounded-full bg-ocean-100 text-ocean-700 text-xs font-bold whitespace-nowrap shrink-0">
                       Client {c.numero_client}
                     </span>
+                    <span className={`text-xs font-bold px-2 py-0.5 rounded whitespace-nowrap ${c.client_nom==='INCONNU'?'bg-slate-100 text-slate-400':'bg-amber-100 text-amber-800'}`}>{c.client_nom || 'INCONNU'}</span>
                     <span className="text-xs font-medium text-slate-600 bg-slate-100 px-2 py-0.5 rounded shrink-0">{c.employe_nom}</span>
                     <span className="font-bold text-slate-700 text-sm">{parseFloat(c.kg_achetes).toFixed(1)} kg</span>
                     <span className="text-water-700 font-medium text-sm">{parseInt(c.montant_recu).toLocaleString('fr')} FCFA</span>
