@@ -9,6 +9,8 @@ const navItems = [
   { to: '/admin/stocks', label: 'Stocks & Bacs', icon: '🐟' },
   { to: '/admin/employes', label: 'Employés', icon: '👥' },
   { to: '/admin/demandes', label: 'Demandes', icon: '🔔', badge: true },
+  { to: '/admin/clients', label: 'Clients', icon: '🧾' },
+  { to: '/admin/rapport', label: 'Rapport', icon: '📄' },
   { to: '/admin/profil', label: 'Mon profil', icon: '⚙️' },
 ];
 
