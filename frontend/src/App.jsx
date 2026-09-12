@@ -7,6 +7,8 @@ import AdminDashboard from './pages/admin/AdminDashboard';
 import AdminStocks from './pages/admin/AdminStocks';
 import AdminEmployes from './pages/admin/AdminEmployes';
 import AdminDemandes from './pages/admin/AdminDemandes';
+import AdminClients from './pages/admin/AdminClients';
+import AdminRapport from './pages/admin/AdminRapport';
 import AdminProfil from './pages/admin/AdminProfil';
 import EmployeJournee from './pages/employe/EmployeJournee';
 import EmployeGraphique from './pages/employe/EmployeGraphique';
@@ -47,6 +49,8 @@ export default function App() {
           <Route path="stocks" element={<AdminStocks />} />
           <Route path="employes" element={<AdminEmployes />} />
           <Route path="demandes" element={<AdminDemandes />} />
+          <Route path="clients" element={<AdminClients />} />
+          <Route path="rapport" element={<AdminRapport />} />
           <Route path="profil" element={<AdminProfil />} />
         </Route>
 
