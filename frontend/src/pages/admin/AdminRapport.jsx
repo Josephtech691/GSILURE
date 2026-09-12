@@ -24,7 +24,18 @@ export default function AdminRapport() {
       a.remove();
       window.URL.revokeObjectURL(url);
     } catch (err) {
-      setErreur(err.response?.data?.message || 'Erreur lors de la génération du rapport.');
+      let message = 'Erreur lors de la génération du rapport.';
+      if (err.response?.data instanceof Blob) {
+        try {
+          const texte = await err.response.data.text();
+          const json = JSON.parse(texte);
+          message = json.message || message;
+        } catch { /* le corps n'était pas du JSON, on garde le message générique */ }
+      } else if (err.response?.data?.message) {
+        message = err.response.data.message;
+      }
+      console.error('Erreur rapport:', err);
+      setErreur(message);
     } finally { setLoading(false); }
   };
 
