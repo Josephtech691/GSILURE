@@ -9,29 +9,54 @@ export default function AdminRapport() {
   const [loading, setLoading] = useState(false);
   const [erreur, setErreur] = useState('');
 
-  const genererRapport = async () => {
-    setErreur('');
-    if (dateFin < dateDebut) { setErreur('La date de fin doit être après la date de début.'); return; }
-    setLoading(true);
-    try {
-      const res = await api.get(`/rapports/generer?date_debut=${dateDebut}&date_fin=${dateFin}`, { responseType: 'text' });
-      const blob = new Blob([res.data], { type: 'text/html' });
-      const url = window.URL.createObjectURL(blob);
-      // Navigation dans le même onglet : bien plus fiable sur mobile
-      // que l'ouverture d'un nouvel onglet (souvent bloquée ou mal gérée).
-      window.location.href = url;
-    } catch (err) {
-      let message = 'Erreur lors de la génération du rapport.';
-      if (typeof err.response?.data === 'string') {
-        try { message = JSON.parse(err.response.data).message || message; } catch { /* pas du JSON */ }
-      } else if (err.response?.data?.message) {
-        message = err.response.data.message;
+const genererRapport = async () => {
+  setErreur('');
+
+  if (dateFin < dateDebut) {
+    setErreur('La date de fin doit être après la date de début.');
+    return;
+  }
+
+  setLoading(true);
+
+  try {
+    const res = await api.get(
+      `/rapports/generer?date_debut=${encodeURIComponent(dateDebut)}&date_fin=${encodeURIComponent(dateFin)}`,
+      {
+        responseType: 'text',
       }
-      console.error('Erreur rapport:', err);
-      setErreur(message);
-      setLoading(false);
+    );
+
+    // Le backend renvoie du HTML, pas un PDF
+    const blob = new Blob([res.data], {
+      type: 'text/html;charset=utf-8',
+    });
+
+    const url = window.URL.createObjectURL(blob);
+
+    // Afficher le rapport HTML
+    window.location.href = url;
+
+  } catch (err) {
+    console.error('Erreur rapport:', err);
+
+    let message = 'Erreur lors de la génération du rapport.';
+
+    if (typeof err.response?.data === 'string') {
+      try {
+        const data = JSON.parse(err.response.data);
+        message = data.message || message;
+      } catch {
+        // La réponse n'est pas du JSON
+      }
+    } else if (err.response?.data?.message) {
+      message = err.response.data.message;
     }
-  };
+
+    setErreur(message);
+    setLoading(false);
+  }
+};
 
   return (
     <div className="space-y-6 max-w-lg">
