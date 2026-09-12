@@ -12,20 +12,15 @@ export default function AdminRapport() {
   const genererRapport = async () => {
     setErreur('');
     if (dateFin < dateDebut) { setErreur('La date de fin doit être après la date de début.'); return; }
-    const fenetre = window.open('', '_blank');
-    if (fenetre) fenetre.document.write('<p style="font-family:sans-serif;padding:40px;color:#64748b;">Génération du rapport…</p>');
     setLoading(true);
     try {
       const res = await api.get(`/rapports/generer?date_debut=${dateDebut}&date_fin=${dateFin}`, { responseType: 'text' });
-      if (fenetre) {
-        fenetre.document.open();
-        fenetre.document.write(res.data);
-        fenetre.document.close();
-      } else {
-        setErreur("La fenêtre du rapport a été bloquée par le navigateur — autorise les pop-ups pour ce site.");
-      }
+      const blob = new Blob([res.data], { type: 'text/html' });
+      const url = window.URL.createObjectURL(blob);
+      // Navigation dans le même onglet : bien plus fiable sur mobile
+      // que l'ouverture d'un nouvel onglet (souvent bloquée ou mal gérée).
+      window.location.href = url;
     } catch (err) {
-      if (fenetre) fenetre.close();
       let message = 'Erreur lors de la génération du rapport.';
       if (typeof err.response?.data === 'string') {
         try { message = JSON.parse(err.response.data).message || message; } catch { /* pas du JSON */ }
@@ -34,7 +29,8 @@ export default function AdminRapport() {
       }
       console.error('Erreur rapport:', err);
       setErreur(message);
-    } finally { setLoading(false); }
+      setLoading(false);
+    }
   };
 
   return (
@@ -59,7 +55,10 @@ export default function AdminRapport() {
         <button onClick={genererRapport} disabled={loading} className="btn-primary w-full py-3 justify-center">
           {loading ? 'Génération en cours…' : '📄 Générer le rapport'}
         </button>
-        <p className="text-xs text-slate-400 text-center">Le rapport s'ouvre dans un nouvel onglet. Utilise "Imprimer" → "Enregistrer en PDF" pour le sauvegarder.</p>
+        <p className="text-xs text-slate-400 text-center">
+          Le rapport s'ouvre dans cet onglet. Utilise le bouton "🖨️ Imprimer" en haut du rapport
+          (ou le menu Partager → Imprimer sur iPhone) puis choisis "Enregistrer en PDF".
+        </p>
       </div>
     </div>
   );
