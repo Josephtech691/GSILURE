@@ -12,25 +12,23 @@ export default function AdminRapport() {
   const genererRapport = async () => {
     setErreur('');
     if (dateFin < dateDebut) { setErreur('La date de fin doit être après la date de début.'); return; }
+    const fenetre = window.open('', '_blank');
+    if (fenetre) fenetre.document.write('<p style="font-family:sans-serif;padding:40px;color:#64748b;">Génération du rapport…</p>');
     setLoading(true);
     try {
-      const res = await api.get(`/rapports/generer?date_debut=${dateDebut}&date_fin=${dateFin}`, { responseType: 'blob' });
-      const url = window.URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }));
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `rapport-${dateDebut}-au-${dateFin}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      window.URL.revokeObjectURL(url);
+      const res = await api.get(`/rapports/generer?date_debut=${dateDebut}&date_fin=${dateFin}`, { responseType: 'text' });
+      if (fenetre) {
+        fenetre.document.open();
+        fenetre.document.write(res.data);
+        fenetre.document.close();
+      } else {
+        setErreur("La fenêtre du rapport a été bloquée par le navigateur — autorise les pop-ups pour ce site.");
+      }
     } catch (err) {
+      if (fenetre) fenetre.close();
       let message = 'Erreur lors de la génération du rapport.';
-      if (err.response?.data instanceof Blob) {
-        try {
-          const texte = await err.response.data.text();
-          const json = JSON.parse(texte);
-          message = json.message || message;
-        } catch { /* le corps n'était pas du JSON, on garde le message générique */ }
+      if (typeof err.response?.data === 'string') {
+        try { message = JSON.parse(err.response.data).message || message; } catch { /* pas du JSON */ }
       } else if (err.response?.data?.message) {
         message = err.response.data.message;
       }
@@ -59,8 +57,9 @@ export default function AdminRapport() {
         </div>
         {erreur && <p className="text-sm text-red-600">{erreur}</p>}
         <button onClick={genererRapport} disabled={loading} className="btn-primary w-full py-3 justify-center">
-          {loading ? 'Génération en cours…' : '📥 Générer et télécharger le PDF'}
+          {loading ? 'Génération en cours…' : '📄 Générer le rapport'}
         </button>
+        <p className="text-xs text-slate-400 text-center">Le rapport s'ouvre dans un nouvel onglet. Utilise "Imprimer" → "Enregistrer en PDF" pour le sauvegarder.</p>
       </div>
     </div>
   );
