@@ -364,27 +364,7 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-      {/* ═══ VALEURS DE DÉPART DE LA PÉRIODE ═══ */}
-      {periodeActive && (
-        <div className="card p-5">
-          <div className="flex items-center justify-between mb-4 gap-2">
-            <h2 className="text-sm font-semibold text-slate-600 uppercase tracking-wide">🏁 Valeurs de départ de la période</h2>
-            <select value={periodeSelectionnee?.id || ''} onChange={e => selectionnerPeriode(e.target.value)} className="text-xs border border-slate-200 rounded-lg px-2 py-1 bg-white text-slate-600">
-              {periodes.map(p => <option key={p.id} value={p.id}>{formatSafeDate(p.date_debut, 'dd/MM/yyyy')} → {p.date_fin ? formatSafeDate(p.date_fin, 'dd/MM/yyyy') : 'en cours'}</option>)}
-            </select>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="bg-slate-50 border border-slate-100 rounded-xl p-4 text-center">
-              <p className="text-2xl font-bold text-slate-700">{parseFloat(periodeSelectionnee?.stock_depart_kg||0).toFixed(1)} kg</p>
-              <p className="text-xs text-slate-400 mt-0.5">Stock de départ</p>
-            </div>
-            <div className="bg-slate-50 border border-slate-100 rounded-xl p-4 text-center">
-              <p className="text-2xl font-bold text-slate-700">{parseInt(periodeSelectionnee?.caisse_depart||0).toLocaleString('fr')} F</p>
-              <p className="text-xs text-slate-400 mt-0.5">Caisse de départ</p>
-            </div>
-          </div>
-        </div>
-      )}
+      
 
       {/* ═══ STATS PAR EMPLOYÉ ═══ */}
       <div className="card overflow-hidden">
@@ -649,7 +629,27 @@ export default function AdminDashboard() {
         )}
       </div>
 
- 
+ {/* ═══ VALEURS DE DÉPART DE LA PÉRIODE ═══ */}
+      {periodeActive && (
+        <div className="card p-5">
+          <div className="flex items-center justify-between mb-4 gap-2">
+            <h2 className="text-sm font-semibold text-slate-600 uppercase tracking-wide">🏁 Valeurs de départ de la période</h2>
+            <select value={periodeSelectionnee?.id || ''} onChange={e => selectionnerPeriode(e.target.value)} className="text-xs border border-slate-200 rounded-lg px-2 py-1 bg-white text-slate-600">
+              {periodes.map(p => <option key={p.id} value={p.id}>{formatSafeDate(p.date_debut, 'dd/MM/yyyy')} → {p.date_fin ? formatSafeDate(p.date_fin, 'dd/MM/yyyy') : 'en cours'}</option>)}
+            </select>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="bg-slate-50 border border-slate-100 rounded-xl p-4 text-center">
+              <p className="text-2xl font-bold text-slate-700">{parseFloat(periodeSelectionnee?.stock_depart_kg||0).toFixed(1)} kg</p>
+              <p className="text-xs text-slate-400 mt-0.5">Stock de départ</p>
+            </div>
+            <div className="bg-slate-50 border border-slate-100 rounded-xl p-4 text-center">
+              <p className="text-2xl font-bold text-slate-700">{parseInt(periodeSelectionnee?.caisse_depart||0).toLocaleString('fr')} F</p>
+              <p className="text-xs text-slate-400 mt-0.5">Caisse de départ</p>
+            </div>
+          </div>
+        </div>
+      )}
 
 
       {/* ═══ VENTES DU MOIS — sélectionnable ═══ */}
