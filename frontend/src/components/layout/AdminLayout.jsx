@@ -7,6 +7,7 @@ import Avatar from '../ui/Avatar';
 const navItems = [
   { to: '/admin', label: 'Tableau de bord', icon: '📊', end: true },
   { to: '/admin/stocks', label: 'Stocks & Bacs', icon: '🐟' },
+  { to: '/admin/caisse', label: 'Caisse', icon: '💰' },
   { to: '/admin/employes', label: 'Employés', icon: '👥' },
   { to: '/admin/demandes', label: 'Demandes', icon: '🔔', badge: true },
   { to: '/admin/clients', label: 'Clients', icon: '🧾' },

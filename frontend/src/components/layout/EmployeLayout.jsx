@@ -21,6 +21,7 @@ export default function EmployeLayout() {
   const navItems = [
     { to: '/employe', label: 'Ventes', icon: '📅', end: true },
     { to: '/employe/graphique', label: 'Graphique', icon: '📈' },
+    { to: '/employe/demandes', label: 'Demandes', icon: '📨' },
     { to: '/employe/profil', label: 'Profil', icon: '👤' },
   ];
 
