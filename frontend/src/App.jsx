@@ -11,9 +11,11 @@ import AdminClients from './pages/admin/AdminClients';
 import AdminRapport from './pages/admin/AdminRapport';
 import AdminProfil from './pages/admin/AdminProfil';
 import AdminParametres from './pages/admin/AdminParametres';
+import AdminCaisse from './pages/admin/AdminCaisse';
 import EmployeJournee from './pages/employe/EmployeJournee';
 import EmployeGraphique from './pages/employe/EmployeGraphique';
 import EmployeProfil from './pages/employe/EmployeProfil';
+import EmployeDemandes from './pages/employe/EmployeDemandes';
 import OfflineBanner from './components/ui/OfflineBanner';
 
 function RequireAuth({ children, role }) {
@@ -54,11 +56,13 @@ export default function App() {
           <Route path="rapport" element={<AdminRapport />} />
           <Route path="profil" element={<AdminProfil />} />
           <Route path="parametres" element={<AdminParametres />} />
+          <Route path="caisse" element={<AdminCaisse />} />
         </Route>
 
         <Route path="/employe" element={<RequireAuth role="employee"><EmployeLayout /></RequireAuth>}>
           <Route index element={<EmployeJournee />} />
           <Route path="graphique" element={<EmployeGraphique />} />
+          <Route path="demandes" element={<EmployeDemandes />} />
           <Route path="profil" element={<EmployeProfil />} />
         </Route>
 
