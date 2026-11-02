@@ -107,7 +107,8 @@ export default function EmployeGraphique() {
   const totalKgAchete = stockGlobal.total_kg_achete || 0;
   const totalKgVendu = stockGlobal.total_kg_vendu || 0;
   const totalKgPerdu = stockGlobal.total_kg_perdu || 0;
-const resteKg = totalKgAchete - totalKgVendu - totalKgPerdu;
+  const totalKgRetire = stockGlobal.total_kg_retire || 0;
+  const resteKg = Math.max(0, totalKgAchete - totalKgVendu - totalKgPerdu - totalKgRetire);
 
   const Chart = typeChart === 'bar' ? BarChart : LineChart;
 

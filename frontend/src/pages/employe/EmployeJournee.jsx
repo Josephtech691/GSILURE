@@ -90,6 +90,11 @@ function CarteClient({ client, readOnly, onModifier, onSupprimer, onDemanderAnnu
   <p className="text-xs text-slate-400">{client.type_stock}{(client.poids_categories?.length ? client.poids_categories.join(', ') : client.poids_categorie) && ` · ${(client.poids_categories?.length ? client.poids_categories.join(', ') : client.poids_categorie)}`}</p>
 )}
             {client.vente_employe_nom && client.vente_employe_id && <p className="text-xs text-ocean-600 mt-0.5">Vendu par : {client.vente_employe_nom}</p>}
+            {Array.isArray(client.bacs_repartition) && client.bacs_repartition.length > 0 && (
+              <p className="text-xs text-water-700 mt-0.5">
+                Bacs : {client.bacs_repartition.map(b => `Bac ${b.bac_numero} ${b.pourcentage}% (${Number(b.quantite_kg).toFixed(2)} kg)`).join(' · ')}
+              </p>
+            )}
             {client.commentaire && <p className="text-xs text-slate-500 italic mt-0.5">{client.commentaire}</p>}
           </div>
         </div>
@@ -429,6 +434,28 @@ export default function EmployeJournee() {
                       <p className="text-xs text-slate-500">{(nouveauClient.poids_categories || []).length}/3 poids sélectionnés</p>
                     </div>
                   </div>
+                  <div className="col-span-2 rounded-xl border border-water-200 bg-water-50/60 p-3">
+                    <label className="block text-xs font-semibold text-slate-700 mb-2">Bacs utilisés * (1 à 3)</label>
+                    <div className="grid grid-cols-4 sm:grid-cols-7 gap-2">
+                      {[1,2,3,4,5,6,7].map(bac => {
+                        const selected = (nouveauClient.bacs_selectionnes || []).includes(bac);
+                        return <label key={bac} className={`flex items-center justify-center gap-1 rounded-lg border px-2 py-2 text-xs cursor-pointer ${selected ? 'border-water-600 bg-water-100 text-water-800 font-bold' : 'border-slate-200 bg-white text-slate-600'}`}>
+                          <input type="checkbox" checked={selected} onChange={e => {
+                            const current = nouveauClient.bacs_selectionnes || [];
+                            if (e.target.checked && current.length >= 3) { show('Maximum 3 bacs par vente.', 'error'); return; }
+                            const next = e.target.checked ? [...current, bac] : current.filter(x => x !== bac);
+                            setNouveauClient({...nouveauClient, bacs_selectionnes: next});
+                          }} /> Bac {bac}
+                        </label>;
+                      })}
+                    </div>
+                    <p className="mt-2 text-xs text-slate-600">
+                      {(nouveauClient.bacs_selectionnes || []).length === 1 ? '100 % dans le bac sélectionné.' :
+                       (nouveauClient.bacs_selectionnes || []).length === 2 ? 'Répartition automatique : 1er bac 75 % · 2e bac 25 %.' :
+                       (nouveauClient.bacs_selectionnes || []).length === 3 ? 'Répartition automatique : 1er bac 50 % · 2e bac 30 % · 3e bac 20 %.' :
+                       'Sélectionnez de 1 à 3 bacs. L’ordre de sélection détermine la répartition.'}
+                    </p>
+                  </div>
                   <div><label className="block text-xs font-medium text-slate-500 mb-1">Kg achetés *</label>
                     <input type="number" step="any" min="0.1" required autoFocus value={nouveauClient.kg_achetes}
                       onChange={e => setNouveauClient({...nouveauClient, kg_achetes: e.target.value})} className="input" /></div>
@@ -499,7 +526,7 @@ export default function EmployeJournee() {
           {canEdit && !nouveauClient && (
             <div className="grid grid-cols-2 gap-3">
               <button
-                onClick={() => setNouveauClient({ kg_achetes:'', montant_recu:'', poids_categorie:'', poids_categories: [], heure_approx: new Date().toTimeString().slice(0,5), commentaire:'', client_nom: 'INCONNU' })}
+                onClick={() => setNouveauClient({ kg_achetes:'', montant_recu:'', poids_categorie:'', poids_categories: [], bacs_selectionnes: [], heure_approx: new Date().toTimeString().slice(0,5), commentaire:'', client_nom: 'INCONNU' })}
                 className="btn-primary py-3 justify-center text-sm">
                 + Nouveau Client
               </button>
