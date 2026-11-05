@@ -67,7 +67,7 @@ export default function AdminLayout() {
           <div className="relative">
             <button onClick={() => setShowNotifs(!showNotifs)} className="relative p-2 text-slate-500 hover:bg-slate-100 rounded-lg transition">
               🔔
-              {nbNonLues > 0 && <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full" />}
+              {nbNonLues > 0 && <span className="absolute -top-0.5 -right-0.5 min-w-[17px] h-[17px] px-1 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">{nbNonLues}</span>}
             </button>
             {showNotifs && (
               <div className="absolute right-0 top-full mt-2 w-80 bg-white rounded-xl border border-slate-200 shadow-xl z-50">
