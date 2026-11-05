@@ -954,17 +954,17 @@ export default function AdminDashboard() {
               </div>
               <div className="h-44 sm:h-72 w-full min-w-0">
                 <ResponsiveContainer width="100%" height="100%">
-                  {typeGraphCA === 'line' ? <LineChart data={graphSeriesData} margin={{ top: 8, right: 2, left: -22, bottom: 0 }}>
+                  {typeGraphCA === 'line' ? <LineChart data={graphSeriesData} margin={{ top: 8, right: 8, left: 8, bottom: 0 }}>
                     <CartesianGrid stroke="#697176" strokeDasharray="2 3" vertical />
                     <XAxis dataKey="date_label" tick={{ fontSize: 9, fill: '#f1f5f9' }} tickMargin={4} minTickGap={12} axisLine={{ stroke: '#94a3b8' }} tickLine={false} />
-                    <YAxis tick={{ fontSize: 9, fill: '#f1f5f9' }} width={32} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fontSize: 9, fill: '#f1f5f9' }} width={48} axisLine={{ stroke: '#94a3b8' }} tickLine={{ stroke: '#94a3b8' }} tickFormatter={v => `${Number(v).toLocaleString('fr-FR')}`} />
                     <Tooltip contentStyle={{ backgroundColor: '#252a2d', border: '1px solid #64748b', borderRadius: 8, color: '#fff', fontSize: 11 }} formatter={(v, name) => [`${Number(v).toLocaleString('fr-FR')} F`, name === 'ca_total' ? 'Chiffre d’affaires total' : name]} />
                     <Line type="monotone" dataKey="ca_total" name="Chiffre d’affaires" stroke={couleurCA} strokeWidth={3} dot={false} />
                     {employeSeries.map(emp => <Line key={emp.employe_id} type="monotone" dataKey={emp.cleSerie} name={emp.employe_nom} stroke={emp.couleur} strokeWidth={2} dot={false} activeDot={{ r: 3 }} connectNulls />)}
-                  </LineChart> : <BarChart data={graphSeriesData} margin={{ top: 8, right: 2, left: -22, bottom: 0 }}>
+                  </LineChart> : <BarChart data={graphSeriesData} margin={{ top: 8, right: 8, left: 8, bottom: 0 }}>
                     <CartesianGrid stroke="#697176" strokeDasharray="2 3" vertical />
                     <XAxis dataKey="date_label" tick={{ fontSize: 9, fill: '#f1f5f9' }} tickMargin={4} minTickGap={12} axisLine={{ stroke: '#94a3b8' }} tickLine={false} />
-                    <YAxis tick={{ fontSize: 9, fill: '#f1f5f9' }} width={32} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fontSize: 9, fill: '#f1f5f9' }} width={48} axisLine={{ stroke: '#94a3b8' }} tickLine={{ stroke: '#94a3b8' }} tickFormatter={v => `${Number(v).toLocaleString('fr-FR')}`} />
                     <Tooltip contentStyle={{ backgroundColor: '#252a2d', border: '1px solid #64748b', borderRadius: 8, color: '#fff', fontSize: 11 }} formatter={(v, name) => [`${Number(v).toLocaleString('fr-FR')} F`, name === 'ca_total' ? 'Chiffre d’affaires total' : name]} />
                     <Bar dataKey="ca_total" name="Chiffre d’affaires" fill={couleurCA} />
                     {employeSeries.map(emp => <Bar key={emp.employe_id} dataKey={emp.cleSerie} name={emp.employe_nom} fill={emp.couleur} />)}
@@ -977,28 +977,57 @@ export default function AdminDashboard() {
               </div>
             </div>
           </div>
-          <div className="card p-3 sm:p-5 min-w-0 overflow-hidden">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
-              <div><h3 className="text-base sm:text-lg font-bold text-slate-800">📈 Comparaison du chiffre d’affaires</h3><p className="text-xs text-slate-500 mt-1">Période actuelle comparée aux 3 périodes précédentes.</p></div>
-              <div className="flex flex-wrap gap-2">
-                <select aria-label="Filtre du graphique de comparaison" value={graphComparaisonFiltre} onChange={e => setGraphComparaisonFiltre(e.target.value)} className="text-xs border border-slate-200 rounded-lg px-2 py-1.5 bg-white text-slate-600"><option value="semaine">Semaine</option><option value="mois">Mois</option><option value="annee">Année</option><option value="periode">Période personnalisée</option></select>
-                {graphComparaisonFiltre === 'periode' && <><input aria-label="Début comparaison" type="date" value={graphComparaisonDebut} max={graphComparaisonFin || todayStr()} onChange={e => setGraphComparaisonDebut(e.target.value)} className="text-xs border border-slate-200 rounded-lg px-2 py-1.5 bg-white text-slate-600"/><input aria-label="Fin comparaison" type="date" value={graphComparaisonFin} min={graphComparaisonDebut} max={todayStr()} onChange={e => setGraphComparaisonFin(e.target.value)} className="text-xs border border-slate-200 rounded-lg px-2 py-1.5 bg-white text-slate-600"/>}</> }
-                <div className="flex rounded-lg border border-slate-200 overflow-hidden">{['bar','line'].map(type => <button key={type} type="button" onClick={() => setGraphComparaisonType(type)} className={`px-2 py-1 text-xs ${graphComparaisonType === type ? 'bg-ocean-600 text-white' : 'bg-white text-slate-600'}`}>{type === 'bar' ? '📊 Bâtons' : '📈 Courbe'}</button>)}</div>
-              </div>
+          <div className="min-w-0 overflow-hidden rounded-xl border border-slate-700 bg-[#303639] p-2 sm:p-4 text-white">
+            <div className="mb-3 flex flex-wrap items-center gap-2">
+              <strong className="mr-auto text-xs sm:text-sm">🐟 Performance des catégories de poids</strong>
+              <select aria-label="Filtre indépendant du graphique des poids" value={graphPoidsFiltre} onChange={e => setGraphPoidsFiltre(e.target.value)} className="rounded-lg border border-slate-500 bg-slate-800 px-2 py-1.5 text-xs text-white">
+                <option value="semaine">Semaine</option><option value="mois">Mois</option><option value="annee">Année</option><option value="periode">Période personnalisée</option>
+              </select>
+              {graphPoidsFiltre === 'periode' && <>
+                <input aria-label="Début poids" type="date" value={graphPoidsDebut} max={graphPoidsFin || todayStr()} onChange={e => setGraphPoidsDebut(e.target.value)} className="rounded-lg border border-slate-500 bg-slate-800 px-2 py-1.5 text-xs text-white"/>
+                <input aria-label="Fin poids" type="date" value={graphPoidsFin} min={graphPoidsDebut} max={todayStr()} onChange={e => setGraphPoidsFin(e.target.value)} className="rounded-lg border border-slate-500 bg-slate-800 px-2 py-1.5 text-xs text-white"/>
+              </>}
             </div>
-            {graphComparaisonLoading ? <p className="py-8 text-center text-sm text-slate-400">Chargement de la comparaison…</p> : graphComparaisonData.rows?.length ? <div className="h-64 sm:h-72 w-full min-w-0"><ResponsiveContainer width="100%" height="100%">
-              {graphComparaisonType === 'bar' ? <BarChart data={graphComparaisonData.rows} barCategoryGap="25%"><CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" /><XAxis dataKey="point" tick={{ fontSize: 10 }} interval={graphComparaisonFiltre === 'mois' ? 4 : graphComparaisonFiltre === 'periode' ? 'preserveStartEnd' : 0} /><YAxis tickFormatter={v => `${Math.round(v/1000)}k`} tick={{ fontSize: 10 }} /><Tooltip content={({ active, payload, label }) => active && payload?.length ? <div className="rounded-lg border border-slate-200 bg-white p-3 shadow-lg text-xs"><p className="mb-2 font-semibold text-slate-700">{label}</p>{(payload[0]?.payload?.valuesSorted || []).map(item => <div key={item.nom} className="flex items-center justify-between gap-4 py-0.5"><span className="flex items-center gap-2"><span className="inline-block h-2.5 w-2.5 rounded-full" style={{ backgroundColor: item.couleur }} />{item.nom}</span><strong>{item.valeur.toLocaleString('fr-FR')} FCFA</strong></div>)}</div> : null} /><Legend content={() => <div className="flex flex-wrap justify-center gap-x-3 gap-y-1 pt-2 text-[10px]">{graphComparaisonData.series.map(serie => <span key={serie.nom} className="inline-flex items-center gap-1"><span className="inline-block h-2.5 w-2.5 rounded-full" style={{ backgroundColor: serie.couleur }} />{serie.nom}</span>)}</div>} /><Bar dataKey="maxCA" name="Comparaison des périodes" fill="transparent" isAnimationActive={false} shape={({ x, y, width, height, payload }) => { const values = payload?.valuesSorted || []; const baseline = y + height; const maxValue = Number(payload?.maxCA || 0); const barWidths = [width * 0.9, width * 0.68, width * 0.46, width * 0.25]; return <g>{values.map((item, index) => { if (!maxValue || item.valeur <= 0) return null; const barHeight = height * item.valeur / maxValue; const barWidth = Math.max(2, barWidths[index] || width * 0.2); return <rect key={item.nom} x={x + (width - barWidth) / 2} y={baseline - barHeight} width={barWidth} height={barHeight} fill={item.couleur} stroke="#ffffff" strokeWidth="0.5" />; })}</g>} } /></BarChart> : <LineChart data={graphComparaisonData.rows}><CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" /><XAxis dataKey="point" tick={{ fontSize: 10 }} interval={graphComparaisonFiltre === 'mois' ? 4 : graphComparaisonFiltre === 'periode' ? 'preserveStartEnd' : 0} /><YAxis tickFormatter={v => `${Math.round(v/1000)}k`} tick={{ fontSize: 10 }} /><Tooltip formatter={v => [`${Number(v).toLocaleString('fr-FR')} FCFA`]} /><Legend />{graphComparaisonData.series.map(serie => <Line key={serie.nom} type="monotone" dataKey={serie.nom} name={serie.nom} stroke={serie.couleur} strokeWidth={3} connectNulls dot={false} activeDot={{ r: 5 }} />)}</LineChart>}</ResponsiveContainer></div> : <p className="py-8 text-center text-sm text-slate-400">Aucune donnée de chiffre d’affaires pour ces périodes.</p>}
-          </div>
-          <div className="card p-3 sm:p-5 min-w-0 overflow-hidden">
-            <div className="flex flex-wrap items-center justify-between gap-2 mb-3"><div><h3 className="text-base sm:text-lg font-bold text-slate-800">🐟 Répartition des poids vendus</h3><p className="text-xs sm:text-sm text-slate-500 mt-1">Pourcentage des kilogrammes vendus par catégorie de poids.</p></div><div className="flex flex-wrap items-center gap-2"><select aria-label="Filtre du graphique des poids" value={graphPoidsFiltre} onChange={e => setGraphPoidsFiltre(e.target.value)} className="text-xs border border-slate-200 rounded-lg px-2 py-1.5 bg-white text-slate-600"><option value="semaine">Semaine</option><option value="mois">Mois</option><option value="annee">Année</option><option value="periode">Période personnalisée</option></select>{graphPoidsFiltre === 'periode' && <><input aria-label="Début poids" type="date" value={graphPoidsDebut} max={graphPoidsFin || todayStr()} onChange={e => setGraphPoidsDebut(e.target.value)} className="text-xs border border-slate-200 rounded-lg px-2 py-1.5 bg-white text-slate-600"/><input aria-label="Fin poids" type="date" value={graphPoidsFin} min={graphPoidsDebut} max={todayStr()} onChange={e => setGraphPoidsFin(e.target.value)} className="text-xs border border-slate-200 rounded-lg px-2 py-1.5 bg-white text-slate-600"/></>}</div></div>
             {(() => {
               const poidsData = (graphPoidsData.poids_vendus || []).filter(p => Number(p.kg) > 0);
               const totalKgPoids = poidsData.reduce((sum, p) => sum + Number(p.kg || 0), 0);
               const couleursPoids = ['#f44336', '#ff9800', '#2196f3', '#d946ef', '#22c55e', '#eab308', '#06b6d4', '#8b5cf6', '#f97316'];
-              return poidsData.length ? <div className="grid grid-cols-1 sm:grid-cols-2 items-center gap-3">
-                <div className="h-64 sm:h-72 min-w-0"><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={poidsData.map(p => ({ ...p, pourcentage: totalKgPoids ? Number(p.kg) / totalKgPoids * 100 : 0 }))} dataKey="kg" nameKey="poids_categorie" cx="50%" cy="50%" outerRadius="78%" paddingAngle={2} label={({ payload }) => `${Number(payload?.pourcentage || 0).toFixed(1)}%`} labelLine>{poidsData.map((p, i) => <Cell key={p.poids_categorie} fill={couleursPoids[i % couleursPoids.length]} />)}</Pie><Tooltip formatter={(v, name) => [`${Number(v).toLocaleString('fr-FR', { maximumFractionDigits: 2 })} kg`, name]} /></PieChart></ResponsiveContainer></div>
-                <div className="space-y-2">{poidsData.map((p, i) => <div key={p.poids_categorie} className="flex items-center justify-between gap-3 text-sm"><span className="flex items-center gap-2 min-w-0"><span className="w-3 h-3 rounded-sm shrink-0" style={{ backgroundColor: couleursPoids[i % couleursPoids.length] }} /><span className="truncate">{p.poids_categorie}</span></span><strong>{(Number(p.kg) / totalKgPoids * 100).toLocaleString('fr-FR', { maximumFractionDigits: 1 })}%</strong></div>)}</div>
-              </div> : graphPoidsData.poids_erreur ? <div className="m-3 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800"><p className="font-semibold">Erreur réelle du serveur — graphique des poids</p><p className="mt-1 break-words">{graphPoidsData.poids_erreur.message}</p>{graphPoidsData.poids_erreur.code && <p className="mt-1">Code PostgreSQL : <code>{graphPoidsData.poids_erreur.code}</code></p>}{graphPoidsData.poids_erreur.detail && <p className="mt-1 break-words">Détail : {graphPoidsData.poids_erreur.detail}</p>}{graphPoidsData.poids_erreur.hint && <p className="mt-1 break-words">Conseil : {graphPoidsData.poids_erreur.hint}</p>}</div> : <p className="py-10 text-center text-sm text-slate-400">Aucune vente avec une catégorie de poids renseignée sur cette période.</p>;
+              const donneesPoids = poidsData.map((p, i) => ({ ...p, kg: Number(p.kg || 0), pourcentage: totalKgPoids ? Number(p.kg || 0) / totalKgPoids * 100 : 0, couleur: couleursPoids[i % couleursPoids.length] }));
+              return poidsData.length ? <>
+                <div className="grid grid-cols-3 sm:grid-cols-5 lg:grid-cols-9 gap-2 sm:gap-3">
+                  {donneesPoids.map((p, i) => {
+                    const pct = Math.max(0, Math.min(100, p.pourcentage));
+                    return <div key={p.poids_categorie} className="min-w-0 flex gap-1.5">
+                      <div className="relative w-2 shrink-0 overflow-hidden rounded-full bg-slate-100/95 min-h-[76px]">
+                        <div className="absolute bottom-0 left-0 right-0 rounded-full" style={{ height: `${pct}%`, backgroundColor: p.couleur }}/>
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm sm:text-lg font-bold leading-tight" style={{ color: p.couleur }}>{pct.toLocaleString('fr-FR', { maximumFractionDigits: 1 })}%</p>
+                        <p className="truncate text-[9px] sm:text-xs font-bold">{p.poids_categorie}</p>
+                        <p className="mt-1 text-[8px] sm:text-[10px] text-slate-200">Kg vendus</p>
+                        <strong className="block text-[9px] sm:text-xs">{p.kg.toLocaleString('fr-FR', { maximumFractionDigits: 2 })} kg</strong>
+                      </div>
+                    </div>;
+                  })}
+                </div>
+                <div className="mt-3 sm:mt-6 border-t border-slate-500/70 pt-2 sm:pt-4">
+                  <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                    <h3 className="text-xs sm:text-base font-bold">Kilogrammes vendus par catégorie</h3>
+                    <span className="text-[9px] sm:text-xs text-slate-300">Total : {totalKgPoids.toLocaleString('fr-FR', { maximumFractionDigits: 2 })} kg</span>
+                  </div>
+                  <div className="h-52 sm:h-72 w-full min-w-0">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={donneesPoids} margin={{ top: 8, right: 12, left: 8, bottom: 8 }}>
+                        <CartesianGrid stroke="#697176" strokeDasharray="2 3" vertical/>
+                        <XAxis dataKey="poids_categorie" tick={{ fontSize: 9, fill: '#f1f5f9' }} tickMargin={6} axisLine={{ stroke: '#94a3b8' }} tickLine={{ stroke: '#94a3b8' }}/>
+                        <YAxis tick={{ fontSize: 10, fill: '#f1f5f9' }} width={48} axisLine={{ stroke: '#94a3b8' }} tickLine={{ stroke: '#94a3b8' }} tickFormatter={v => `${v} kg`} />
+                        <Tooltip contentStyle={{ backgroundColor: '#252a2d', border: '1px solid #64748b', borderRadius: 8, color: '#fff', fontSize: 11 }} formatter={v => [`${Number(v).toLocaleString('fr-FR', { maximumFractionDigits: 2 })} kg`, 'Kg vendus']}/>
+                        <Bar dataKey="kg" name="Kg vendus" radius={[4,4,0,0]}>{donneesPoids.map(p => <Cell key={p.poids_categorie} fill={p.couleur}/>)}</Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              </> : graphPoidsData.poids_erreur ? <div className="m-3 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800"><p className="font-semibold">Erreur réelle du serveur — graphique des poids</p><p className="mt-1 break-words">{graphPoidsData.poids_erreur.message}</p>{graphPoidsData.poids_erreur.code && <p className="mt-1">Code PostgreSQL : <code>{graphPoidsData.poids_erreur.code}</code></p>}{graphPoidsData.poids_erreur.detail && <p className="mt-1 break-words">Détail : {graphPoidsData.poids_erreur.detail}</p>{graphPoidsData.poids_erreur.hint && <p className="mt-1 break-words">Conseil : {graphPoidsData.poids_erreur.hint}</p></div> : <p className="py-10 text-center text-sm text-slate-300">Aucune vente avec une catégorie de poids renseignée sur cette période.</p>;
             })()}
           </div>
           <div className="relative card p-0 min-w-0 overflow-hidden border border-emerald-100 shadow-sm">
