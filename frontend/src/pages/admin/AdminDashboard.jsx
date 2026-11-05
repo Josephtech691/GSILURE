@@ -993,7 +993,7 @@ export default function AdminDashboard() {
               const totalKgPoids = poidsData.reduce((sum, p) => sum + Number(p.kg || 0), 0);
               const couleursPoids = ['#f44336', '#ff9800', '#2196f3', '#d946ef', '#22c55e', '#eab308', '#06b6d4', '#8b5cf6', '#f97316'];
               const donneesPoids = poidsData.map((p, i) => ({ ...p, kg: Number(p.kg || 0), pourcentage: totalKgPoids ? Number(p.kg || 0) / totalKgPoids * 100 : 0, couleur: couleursPoids[i % couleursPoids.length] }));
-              return poidsData.length ? <>
+              if (poidsData.length > 0) return <>
                 <div className="grid grid-cols-3 sm:grid-cols-5 lg:grid-cols-9 gap-2 sm:gap-3">
                   {donneesPoids.map((p, i) => {
                     const pct = Math.max(0, Math.min(100, p.pourcentage));
@@ -1027,7 +1027,15 @@ export default function AdminDashboard() {
                     </ResponsiveContainer>
                   </div>
                 </div>
-              </> : graphPoidsData.poids_erreur ? <div className="m-3 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800"><p className="font-semibold">Erreur réelle du serveur — graphique des poids</p><p className="mt-1 break-words">{graphPoidsData.poids_erreur.message}</p>{graphPoidsData.poids_erreur.code && <p className="mt-1">Code PostgreSQL : <code>{graphPoidsData.poids_erreur.code}</code></p>}{graphPoidsData.poids_erreur.detail && <p className="mt-1 break-words">Détail : {graphPoidsData.poids_erreur.detail}</p>}{graphPoidsData.poids_erreur.hint && <p className="mt-1 break-words">Conseil : {graphPoidsData.poids_erreur.hint}</p></div> : <p className="py-10 text-center text-sm text-slate-300">Aucune vente avec une catégorie de poids renseignée sur cette période.</p>;
+              </>;
+              if (graphPoidsData.poids_erreur) return <div className="m-3 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+                <p className="font-semibold">Erreur réelle du serveur — graphique des poids</p>
+                <p className="mt-1 break-words">{graphPoidsData.poids_erreur.message}</p>
+                {graphPoidsData.poids_erreur.code && <p className="mt-1">Code PostgreSQL : <code>{graphPoidsData.poids_erreur.code}</code></p>}
+                {graphPoidsData.poids_erreur.detail && <p className="mt-1 break-words">Détail : {graphPoidsData.poids_erreur.detail}</p>}
+                {graphPoidsData.poids_erreur.hint && <p className="mt-1 break-words">Conseil : {graphPoidsData.poids_erreur.hint}</p>}
+              </div>;
+              return <p className="py-10 text-center text-sm text-slate-300">Aucune vente avec une catégorie de poids renseignée sur cette période.</p>;
             })()}
           </div>
           <div className="relative card p-0 min-w-0 overflow-hidden border border-emerald-100 shadow-sm">
