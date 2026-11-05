@@ -110,8 +110,12 @@ export default function AdminDashboard() {
   const [graphLoading, setGraphLoading] = useState(false);
   const [typeGraphCA, setTypeGraphCA] = useState('line');
   const [graphPoidsFiltre, setGraphPoidsFiltre] = useState('mois');
+  const [graphPoidsDebut, setGraphPoidsDebut] = useState(() => `${new Date().getFullYear()}-${String(new Date().getMonth()+1).padStart(2,'0')}-01`);
+  const [graphPoidsFin, setGraphPoidsFin] = useState(todayStr());
   const [graphPoidsData, setGraphPoidsData] = useState({ poids_vendus: [], poids_erreur: null });
   const [graphComparaisonFiltre, setGraphComparaisonFiltre] = useState('mois');
+  const [graphComparaisonDebut, setGraphComparaisonDebut] = useState(() => `${new Date().getFullYear()}-${String(new Date().getMonth()+1).padStart(2,'0')}-01`);
+  const [graphComparaisonFin, setGraphComparaisonFin] = useState(todayStr());
   const [graphComparaisonType, setGraphComparaisonType] = useState('bar');
   const [graphComparaisonData, setGraphComparaisonData] = useState([]);
   const [graphComparaisonLoading, setGraphComparaisonLoading] = useState(false);
@@ -224,15 +228,18 @@ export default function AdminDashboard() {
 
   // Filtre indépendant du graphique de répartition des poids.
   useEffect(() => {
-    const { debut, fin } = datesPourFiltre(graphPoidsFiltre);
-    const params = new URLSearchParams({ date_debut: debut, date_fin: fin });
+    const dates = graphPoidsFiltre === 'periode'
+      ? { debut: graphPoidsDebut, fin: graphPoidsFin }
+      : datesPourFiltre(graphPoidsFiltre);
+    if (!dates.debut || !dates.fin || dates.debut > dates.fin) return;
+    const params = new URLSearchParams({ date_debut: dates.debut, date_fin: dates.fin });
     api.get(`/ventes/admin-graphiques?${params}`)
       .then(r => setGraphPoidsData({ poids_vendus: r.data?.poids_vendus || [], poids_erreur: r.data?.poids_erreur || null }))
       .catch(err => {
         const e = err?.response?.data?.erreur || {};
         setGraphPoidsData({ poids_vendus: [], poids_erreur: { message: e.message || err.message, code: e.code, detail: e.detail, hint: e.hint } });
       });
-  }, [graphPoidsFiltre]);
+  }, [graphPoidsFiltre, graphPoidsDebut, graphPoidsFin]);
 
   // Compare les 4 périodes sous forme de séries distinctes :
   // chaque courbe représente une semaine, un mois ou une année.
@@ -240,6 +247,29 @@ export default function AdminDashboard() {
     let annule = false;
     setGraphComparaisonLoading(true);
     const couleursComparaison = ['#94a3b8', '#0ea5e9', '#f59e0b', '#0d937c'];
+    if (graphComparaisonFiltre === 'periode') {
+      if (!graphComparaisonDebut || !graphComparaisonFin || graphComparaisonDebut > graphComparaisonFin) {
+        setGraphComparaisonData({ rows: [], series: [] });
+        setGraphComparaisonLoading(false);
+        return () => { annule = true; };
+      }
+      const params = new URLSearchParams({ date_debut: graphComparaisonDebut, date_fin: graphComparaisonFin });
+      api.get(`/ventes/admin-graphiques?${params}`).then(r => {
+        if (annule) return;
+        const ventes = r.data?.ventes || [];
+        const parJour = new Map();
+        ventes.forEach(v => {
+          const key = String(v.date).slice(0, 10);
+          parJour.set(key, (parJour.get(key) || 0) + Number(v.ca || 0));
+        });
+        const rows = [...parJour.entries()].sort((a,b) => a[0].localeCompare(b[0])).map(([jour, ca]) => ({ point: new Date(`${jour}T12:00:00`).toLocaleDateString('fr-FR'), 'Période choisie': ca, maxCA: ca, valuesSorted: [{ nom: 'Période choisie', couleur: '#0ea5e9', valeur: ca }] }));
+        setGraphComparaisonData({ rows, series: [{ nom: 'Période choisie', couleur: '#0ea5e9' }] });
+      }).catch(err => {
+        console.error('Comparaison personnalisée du chiffre d’affaires:', err);
+        if (!annule) setGraphComparaisonData({ rows: [], series: [] });
+      }).finally(() => { if (!annule) setGraphComparaisonLoading(false); });
+      return () => { annule = true; };
+    }
     const libellePeriode = (decalage, debut) => {
       if (graphComparaisonFiltre === 'semaine') {
         return decalage === 0 ? 'Cette semaine' : `Semaine -${decalage}`;
@@ -297,7 +327,7 @@ export default function AdminDashboard() {
       if (!annule) setGraphComparaisonData({ rows: [], series: [] });
     }).finally(() => { if (!annule) setGraphComparaisonLoading(false); });
     return () => { annule = true; };
-  }, [graphComparaisonFiltre]);
+  }, [graphComparaisonFiltre, graphComparaisonDebut, graphComparaisonFin]);
 
   const validerBeneficeKg = () => {
     const montant = Number(beneficeKgSaisi);
@@ -822,24 +852,18 @@ export default function AdminDashboard() {
 
       {/* GRAPHIQUES ANALYTIQUES */}
       <section className="space-y-4 min-w-0 w-full">
-        <div className="card p-3 sm:p-4 flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center justify-between gap-3 min-w-0">
-          <div className="min-w-0"><h2 className="text-base font-bold text-slate-800">📊 Analyse des ventes</h2><p className="text-xs text-slate-500 mt-1">Les graphiques restent affichés, même si le mode période global est désactivé.</p></div>
-          <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-2 min-w-0">
-            <label htmlFor="graph-filtre" className="text-xs font-medium text-slate-600">Filtre</label>
-            <select id="graph-filtre" aria-label="Filtre de période des graphiques" value={graphFiltre} onChange={e => setGraphFiltre(e.target.value)} className="input w-full sm:w-auto text-sm min-w-0">
-              <option value="semaine">Semaine</option><option value="mois">Mois</option><option value="annee">Année</option><option value="periode">Période personnalisée</option>
-            </select>
-            {graphFiltre === 'periode' && <>
-              <label htmlFor="graph-debut" className="text-xs font-medium text-slate-600">Du</label>
-              <input id="graph-debut" aria-label="Date de début des graphiques" type="date" value={graphDebut} max={graphFin || todayStr()} onChange={e => setGraphDebut(e.target.value)} className="input w-full sm:w-auto text-sm min-w-0" />
-              <label htmlFor="graph-fin" className="text-xs font-medium text-slate-600">au</label>
-              <input id="graph-fin" aria-label="Date de fin des graphiques" type="date" value={graphFin} min={graphDebut} max={todayStr()} onChange={e => setGraphFin(e.target.value)} className="input w-full sm:w-auto text-sm min-w-0" />
-            </>}
-          </div>
-        </div>
+        <div className="min-w-0"><h2 className="text-base font-bold text-slate-800">📊 Analyse des ventes</h2><p className="text-xs text-slate-500 mt-1">Chaque graphique possède son propre filtre de dates.</p></div>
         {graphLoading && <p className="text-xs text-slate-400">Actualisation des graphiques…</p>}
         <div className="grid grid-cols-1 gap-3 sm:gap-4 min-w-0">
           <div className="min-w-0 overflow-hidden rounded-xl border border-slate-700 bg-[#303639] p-2 sm:p-4 text-white">
+            <div className="mb-3 flex flex-wrap items-center gap-2">
+              <strong className="mr-auto text-xs sm:text-sm">Performance des employés et CA</strong>
+              <select aria-label="Filtre du graphique de performance" value={graphFiltre} onChange={e => setGraphFiltre(e.target.value)} className="rounded-lg border border-slate-500 bg-slate-800 px-2 py-1.5 text-xs text-white"><option value="semaine">Semaine</option><option value="mois">Mois</option><option value="annee">Année</option><option value="periode">Période personnalisée</option></select>
+              {graphFiltre === 'periode' && <>
+                <input aria-label="Début performance" type="date" value={graphDebut} max={graphFin || todayStr()} onChange={e => setGraphDebut(e.target.value)} className="rounded-lg border border-slate-500 bg-slate-800 px-2 py-1.5 text-xs text-white" />
+                <input aria-label="Fin performance" type="date" value={graphFin} min={graphDebut} max={todayStr()} onChange={e => setGraphFin(e.target.value)} className="rounded-lg border border-slate-500 bg-slate-800 px-2 py-1.5 text-xs text-white" />
+              </>}
+            </div>
             <div className="grid grid-cols-4 gap-1.5 sm:gap-4">
               {employeSeries.map((emp) => {
                 const pct = Math.max(0, Math.min(100, emp.performance));
@@ -914,15 +938,16 @@ export default function AdminDashboard() {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
               <div><h3 className="text-base sm:text-lg font-bold text-slate-800">📈 Comparaison du chiffre d’affaires</h3><p className="text-xs text-slate-500 mt-1">Période actuelle comparée aux 3 périodes précédentes.</p></div>
               <div className="flex flex-wrap gap-2">
-                <select aria-label="Période de comparaison du chiffre d’affaires" value={graphComparaisonFiltre} onChange={e => setGraphComparaisonFiltre(e.target.value)} className="text-xs border border-slate-200 rounded-lg px-2 py-1.5 bg-white text-slate-600"><option value="semaine">Par semaine</option><option value="mois">Par mois</option><option value="annee">Par année</option></select>
+                <select aria-label="Filtre du graphique de comparaison" value={graphComparaisonFiltre} onChange={e => setGraphComparaisonFiltre(e.target.value)} className="text-xs border border-slate-200 rounded-lg px-2 py-1.5 bg-white text-slate-600"><option value="semaine">Semaine</option><option value="mois">Mois</option><option value="annee">Année</option><option value="periode">Période personnalisée</option></select>
+                {graphComparaisonFiltre === 'periode' && <><input aria-label="Début comparaison" type="date" value={graphComparaisonDebut} max={graphComparaisonFin || todayStr()} onChange={e => setGraphComparaisonDebut(e.target.value)} className="text-xs border border-slate-200 rounded-lg px-2 py-1.5 bg-white text-slate-600"/><input aria-label="Fin comparaison" type="date" value={graphComparaisonFin} min={graphComparaisonDebut} max={todayStr()} onChange={e => setGraphComparaisonFin(e.target.value)} className="text-xs border border-slate-200 rounded-lg px-2 py-1.5 bg-white text-slate-600"/>}</> }
                 <div className="flex rounded-lg border border-slate-200 overflow-hidden">{['bar','line'].map(type => <button key={type} type="button" onClick={() => setGraphComparaisonType(type)} className={`px-2 py-1 text-xs ${graphComparaisonType === type ? 'bg-ocean-600 text-white' : 'bg-white text-slate-600'}`}>{type === 'bar' ? '📊 Bâtons' : '📈 Courbe'}</button>)}</div>
               </div>
             </div>
             {graphComparaisonLoading ? <p className="py-8 text-center text-sm text-slate-400">Chargement de la comparaison…</p> : graphComparaisonData.rows?.length ? <div className="h-64 sm:h-72 w-full min-w-0"><ResponsiveContainer width="100%" height="100%">
-              {graphComparaisonType === 'bar' ? <BarChart data={graphComparaisonData.rows} barCategoryGap="25%"><CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" /><XAxis dataKey="point" tick={{ fontSize: 10 }} interval={graphComparaisonFiltre === 'mois' ? 4 : 0} /><YAxis tickFormatter={v => `${Math.round(v/1000)}k`} tick={{ fontSize: 10 }} /><Tooltip content={({ active, payload, label }) => active && payload?.length ? <div className="rounded-lg border border-slate-200 bg-white p-3 shadow-lg text-xs"><p className="mb-2 font-semibold text-slate-700">{label}</p>{(payload[0]?.payload?.valuesSorted || []).map(item => <div key={item.nom} className="flex items-center justify-between gap-4 py-0.5"><span className="flex items-center gap-2"><span className="inline-block h-2.5 w-2.5 rounded-full" style={{ backgroundColor: item.couleur }} />{item.nom}</span><strong>{item.valeur.toLocaleString('fr-FR')} FCFA</strong></div>)}</div> : null} /><Legend content={() => <div className="flex flex-wrap justify-center gap-x-3 gap-y-1 pt-2 text-[10px]">{graphComparaisonData.series.map(serie => <span key={serie.nom} className="inline-flex items-center gap-1"><span className="inline-block h-2.5 w-2.5 rounded-full" style={{ backgroundColor: serie.couleur }} />{serie.nom}</span>)}</div>} /><Bar dataKey="maxCA" name="Comparaison des périodes" fill="transparent" isAnimationActive={false} shape={({ x, y, width, height, payload }) => { const values = payload?.valuesSorted || []; const baseline = y + height; const maxValue = Number(payload?.maxCA || 0); const barWidths = [width * 0.9, width * 0.68, width * 0.46, width * 0.25]; return <g>{values.map((item, index) => { if (!maxValue || item.valeur <= 0) return null; const barHeight = height * item.valeur / maxValue; const barWidth = Math.max(2, barWidths[index] || width * 0.2); return <rect key={item.nom} x={x + (width - barWidth) / 2} y={baseline - barHeight} width={barWidth} height={barHeight} fill={item.couleur} stroke="#ffffff" strokeWidth="0.5" />; })}</g>} } /></BarChart> : <LineChart data={graphComparaisonData.rows}><CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" /><XAxis dataKey="point" tick={{ fontSize: 10 }} interval={graphComparaisonFiltre === 'mois' ? 4 : 0} /><YAxis tickFormatter={v => `${Math.round(v/1000)}k`} tick={{ fontSize: 10 }} /><Tooltip formatter={v => [`${Number(v).toLocaleString('fr-FR')} FCFA`]} /><Legend />{graphComparaisonData.series.map(serie => <Line key={serie.nom} type="monotone" dataKey={serie.nom} name={serie.nom} stroke={serie.couleur} strokeWidth={3} connectNulls dot={false} activeDot={{ r: 5 }} />)}</LineChart>}</ResponsiveContainer></div> : <p className="py-8 text-center text-sm text-slate-400">Aucune donnée de chiffre d’affaires pour ces périodes.</p>}
+              {graphComparaisonType === 'bar' ? <BarChart data={graphComparaisonData.rows} barCategoryGap="25%"><CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" /><XAxis dataKey="point" tick={{ fontSize: 10 }} interval={graphComparaisonFiltre === 'mois' ? 4 : graphComparaisonFiltre === 'periode' ? 'preserveStartEnd' : 0} /><YAxis tickFormatter={v => `${Math.round(v/1000)}k`} tick={{ fontSize: 10 }} /><Tooltip content={({ active, payload, label }) => active && payload?.length ? <div className="rounded-lg border border-slate-200 bg-white p-3 shadow-lg text-xs"><p className="mb-2 font-semibold text-slate-700">{label}</p>{(payload[0]?.payload?.valuesSorted || []).map(item => <div key={item.nom} className="flex items-center justify-between gap-4 py-0.5"><span className="flex items-center gap-2"><span className="inline-block h-2.5 w-2.5 rounded-full" style={{ backgroundColor: item.couleur }} />{item.nom}</span><strong>{item.valeur.toLocaleString('fr-FR')} FCFA</strong></div>)}</div> : null} /><Legend content={() => <div className="flex flex-wrap justify-center gap-x-3 gap-y-1 pt-2 text-[10px]">{graphComparaisonData.series.map(serie => <span key={serie.nom} className="inline-flex items-center gap-1"><span className="inline-block h-2.5 w-2.5 rounded-full" style={{ backgroundColor: serie.couleur }} />{serie.nom}</span>)}</div>} /><Bar dataKey="maxCA" name="Comparaison des périodes" fill="transparent" isAnimationActive={false} shape={({ x, y, width, height, payload }) => { const values = payload?.valuesSorted || []; const baseline = y + height; const maxValue = Number(payload?.maxCA || 0); const barWidths = [width * 0.9, width * 0.68, width * 0.46, width * 0.25]; return <g>{values.map((item, index) => { if (!maxValue || item.valeur <= 0) return null; const barHeight = height * item.valeur / maxValue; const barWidth = Math.max(2, barWidths[index] || width * 0.2); return <rect key={item.nom} x={x + (width - barWidth) / 2} y={baseline - barHeight} width={barWidth} height={barHeight} fill={item.couleur} stroke="#ffffff" strokeWidth="0.5" />; })}</g>} } /></BarChart> : <LineChart data={graphComparaisonData.rows}><CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" /><XAxis dataKey="point" tick={{ fontSize: 10 }} interval={graphComparaisonFiltre === 'mois' ? 4 : graphComparaisonFiltre === 'periode' ? 'preserveStartEnd' : 0} /><YAxis tickFormatter={v => `${Math.round(v/1000)}k`} tick={{ fontSize: 10 }} /><Tooltip formatter={v => [`${Number(v).toLocaleString('fr-FR')} FCFA`]} /><Legend />{graphComparaisonData.series.map(serie => <Line key={serie.nom} type="monotone" dataKey={serie.nom} name={serie.nom} stroke={serie.couleur} strokeWidth={3} connectNulls dot={false} activeDot={{ r: 5 }} />)}</LineChart>}</ResponsiveContainer></div> : <p className="py-8 text-center text-sm text-slate-400">Aucune donnée de chiffre d’affaires pour ces périodes.</p>}
           </div>
           <div className="card p-3 sm:p-5 min-w-0 overflow-hidden">
-            <div className="flex flex-wrap items-center justify-between gap-2 mb-3"><div><h3 className="text-base sm:text-lg font-bold text-slate-800">🐟 Répartition des poids vendus</h3><p className="text-xs sm:text-sm text-slate-500 mt-1">Pourcentage des kilogrammes vendus par catégorie de poids.</p></div><select aria-label="Période du graphique des poids" value={graphPoidsFiltre} onChange={e => setGraphPoidsFiltre(e.target.value)} className="text-xs border border-slate-200 rounded-lg px-2 py-1.5 bg-white text-slate-600"><option value="semaine">Semaine</option><option value="mois">Mois</option><option value="annee">Année</option></select></div>
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-3"><div><h3 className="text-base sm:text-lg font-bold text-slate-800">🐟 Répartition des poids vendus</h3><p className="text-xs sm:text-sm text-slate-500 mt-1">Pourcentage des kilogrammes vendus par catégorie de poids.</p></div><div className="flex flex-wrap items-center gap-2"><select aria-label="Filtre du graphique des poids" value={graphPoidsFiltre} onChange={e => setGraphPoidsFiltre(e.target.value)} className="text-xs border border-slate-200 rounded-lg px-2 py-1.5 bg-white text-slate-600"><option value="semaine">Semaine</option><option value="mois">Mois</option><option value="annee">Année</option><option value="periode">Période personnalisée</option></select>{graphPoidsFiltre === 'periode' && <><input aria-label="Début poids" type="date" value={graphPoidsDebut} max={graphPoidsFin || todayStr()} onChange={e => setGraphPoidsDebut(e.target.value)} className="text-xs border border-slate-200 rounded-lg px-2 py-1.5 bg-white text-slate-600"/><input aria-label="Fin poids" type="date" value={graphPoidsFin} min={graphPoidsDebut} max={todayStr()} onChange={e => setGraphPoidsFin(e.target.value)} className="text-xs border border-slate-200 rounded-lg px-2 py-1.5 bg-white text-slate-600"/></>}</div></div>
             {(() => {
               const poidsData = (graphPoidsData.poids_vendus || []).filter(p => Number(p.kg) > 0);
               const totalKgPoids = poidsData.reduce((sum, p) => sum + Number(p.kg || 0), 0);
