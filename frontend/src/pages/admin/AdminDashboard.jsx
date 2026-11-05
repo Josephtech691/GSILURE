@@ -114,10 +114,10 @@ export default function AdminDashboard() {
   const [graphPoidsDebut, setGraphPoidsDebut] = useState(() => `${new Date().getFullYear()}-${String(new Date().getMonth()+1).padStart(2,'0')}-01`);
   const [graphPoidsFin, setGraphPoidsFin] = useState(todayStr());
   const [graphPoidsData, setGraphPoidsData] = useState({ poids_vendus: [], poids_erreur: null });
-  const [graphComparaisonFiltre, setGraphComparaisonFiltre] = useState('mois');
+  const [graphComparaisonFiltre, setGraphComparaisonFiltre] = useState('semaine');
   const [graphComparaisonDebut, setGraphComparaisonDebut] = useState(() => `${new Date().getFullYear()}-${String(new Date().getMonth()+1).padStart(2,'0')}-01`);
   const [graphComparaisonFin, setGraphComparaisonFin] = useState(todayStr());
-  const [graphComparaisonType, setGraphComparaisonType] = useState('bar');
+  const [graphComparaisonType, setGraphComparaisonType] = useState('line');
   const [graphComparaisonData, setGraphComparaisonData] = useState([]);
   const [graphComparaisonLoading, setGraphComparaisonLoading] = useState(false);
   const [beneficeKgSaisi, setBeneficeKgSaisi] = useState(() => localStorage.getItem('gsilure_benefice_kg') || '');
@@ -279,12 +279,12 @@ export default function AdminDashboard() {
     }
     const libellePeriode = (decalage, debut) => {
       if (graphComparaisonFiltre === 'semaine') {
-        return decalage === 0 ? 'Cette semaine' : `Semaine -${decalage}`;
+        return decalage === 0 ? 'Cette semaine' : 'Semaine passée';
       }
       if (graphComparaisonFiltre === 'mois') {
-        return format(new Date(Number(debut.slice(0, 4)), Number(debut.slice(5, 7)) - 1, 1), 'MMM yyyy', { locale: fr });
+        return decalage === 0 ? 'Ce mois-ci' : 'Mois passé';
       }
-      return debut.slice(0, 4);
+      return decalage === 0 ? 'Cette année' : 'Année passée';
     };
     Promise.all([1, 0].map(async decalage => {
       const { debut, fin } = datesPourFiltre(graphComparaisonFiltre, decalage);
@@ -955,17 +955,17 @@ export default function AdminDashboard() {
               </div>
               <div className="h-44 sm:h-72 w-full min-w-0">
                 <ResponsiveContainer width="100%" height="100%">
-                  {typeGraphCA === 'line' ? <LineChart data={graphSeriesData} margin={{ top: 8, right: 2, left: -22, bottom: 0 }}>
+                  {typeGraphCA === 'line' ? <LineChart data={graphSeriesData} margin={{ top: 8, right: 12, left: 8, bottom: 0 }}>
                     <CartesianGrid stroke="#697176" strokeDasharray="2 3" vertical />
                     <XAxis dataKey="date_label" tick={{ fontSize: 9, fill: '#f1f5f9' }} tickMargin={4} minTickGap={12} axisLine={{ stroke: '#94a3b8' }} tickLine={false} />
-                    <YAxis tick={{ fontSize: 9, fill: '#f1f5f9' }} width={32} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fontSize: 10, fill: '#f1f5f9' }} width={66} axisLine={{ stroke: '#94a3b8' }} tickLine={{ stroke: '#94a3b8' }} tickFormatter={v => `${Number(v).toLocaleString('fr-FR', { notation: 'compact', maximumFractionDigits: 1 })} F`} domain={[0, 'auto']} />
                     <Tooltip contentStyle={{ backgroundColor: '#252a2d', border: '1px solid #64748b', borderRadius: 8, color: '#fff', fontSize: 11 }} formatter={(v, name) => [`${Number(v).toLocaleString('fr-FR')} F`, name === 'ca_total' ? 'Chiffre d’affaires total' : name]} />
                     <Line type="linear" dataKey="ca_total" name="Chiffre d’affaires" stroke={couleurCA} strokeWidth={3} dot={false} />
                     {employeSeries.map(emp => <Line key={emp.employe_id} type="linear" dataKey={emp.cleSerie} name={emp.employe_nom} stroke={emp.couleur} strokeWidth={2} dot={false} activeDot={{ r: 3 }} connectNulls />)}
-                  </LineChart> : <BarChart data={graphSeriesData} margin={{ top: 8, right: 2, left: -22, bottom: 0 }}>
+                  </LineChart> : <BarChart data={graphSeriesData} margin={{ top: 8, right: 12, left: 8, bottom: 0 }}>
                     <CartesianGrid stroke="#697176" strokeDasharray="2 3" vertical />
                     <XAxis dataKey="date_label" tick={{ fontSize: 9, fill: '#f1f5f9' }} tickMargin={4} minTickGap={12} axisLine={{ stroke: '#94a3b8' }} tickLine={false} />
-                    <YAxis tick={{ fontSize: 9, fill: '#f1f5f9' }} width={32} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fontSize: 10, fill: '#f1f5f9' }} width={66} axisLine={{ stroke: '#94a3b8' }} tickLine={{ stroke: '#94a3b8' }} tickFormatter={v => `${Number(v).toLocaleString('fr-FR', { notation: 'compact', maximumFractionDigits: 1 })} F`} domain={[0, 'auto']} />
                     <Tooltip contentStyle={{ backgroundColor: '#252a2d', border: '1px solid #64748b', borderRadius: 8, color: '#fff', fontSize: 11 }} formatter={(v, name) => [`${Number(v).toLocaleString('fr-FR')} F`, name === 'ca_total' ? 'Chiffre d’affaires total' : name]} />
                     <Bar dataKey="ca_total" name="Chiffre d’affaires" fill={couleurCA} />
                     {employeSeries.map(emp => <Bar key={emp.employe_id} dataKey={emp.cleSerie} name={emp.employe_nom} fill={emp.couleur} />)}
