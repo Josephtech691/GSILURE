@@ -80,6 +80,18 @@ export default function AdminClients() {
               )}
             </div>
 
+            <div className="card p-4 border border-ocean-100 bg-ocean-50">
+              <p className="text-sm font-semibold text-ocean-800">Dernier achat / dernière visite</p>
+              {detail.dernier_achat ? (
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-3">
+                  <div><p className="text-xs text-slate-500">Date</p><p className="font-semibold text-slate-800">{formatSafeDate(detail.dernier_achat.date_vente, 'd MMM yyyy', { locale: fr })}</p></div>
+                  <div><p className="text-xs text-slate-500">Poids acheté</p><p className="font-semibold text-slate-800">{Number(detail.dernier_achat.kg_achetes || 0).toFixed(1)} kg</p></div>
+                  <div><p className="text-xs text-slate-500">Montant versé</p><p className="font-semibold text-slate-800">{Number(detail.dernier_achat.montant_recu || 0).toLocaleString('fr')} F</p></div>
+                  <div><p className="text-xs text-slate-500">Heure / vendeur</p><p className="font-semibold text-slate-800">{detail.dernier_achat.heure_approx || '—'}</p><p className="text-xs text-slate-500">{detail.dernier_achat.employe_nom || '—'}</p></div>
+                </div>
+              ) : <p className="text-sm text-slate-500 mt-2">Aucun achat enregistré.</p>}
+            </div>
+
             <div className="grid grid-cols-2 gap-3">
               <div className="card p-4 text-center">
                 <p className="text-2xl font-bold text-water-700">{detail.kg_total.toFixed(1)} kg</p>

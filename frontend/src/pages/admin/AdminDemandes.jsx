@@ -3,7 +3,6 @@ import { formatDistanceToNow, format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { formatSafeDate } from '../../lib/date';
 import api from '../../lib/api';
-import { getSocket } from '../../lib/socket';
 import Avatar from '../../components/ui/Avatar';
 import { useToast, ToastDisplay } from '../../components/ui/Toast';
 
@@ -56,16 +55,6 @@ export default function AdminDemandes() {
     if (!confirm(`Voulez-vous ${verb} cette demande ?`)) return;
     try {
       await api.patch(`/ventes/demandes/${id}`, { statut: nouveauStatut });
-      const socket = getSocket();
-      if (socket?.connected) {
-        socket.emit('demande-traitee', {
-          employe_id: demande.employe_id,
-          statut: nouveauStatut,
-          type: demande.type,
-          date: demande.date_cible,
-          message: `Demande "${TYPE_META[demande.type]?.label}" : ${nouveauStatut === 'approuvee' ? 'approuvée ✅' : 'refusée ❌'}`,
-        });
-      }
       charger();
       show(`Demande ${nouveauStatut === 'approuvee' ? 'approuvée' : 'refusée'} ✓`, nouveauStatut === 'approuvee' ? 'success' : 'error');
     } catch (err) { show(err.response?.data?.message || 'Erreur', 'error'); }
