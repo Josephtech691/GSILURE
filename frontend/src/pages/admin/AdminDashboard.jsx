@@ -121,6 +121,12 @@ export default function AdminDashboard() {
   const [graphComparaisonLoading, setGraphComparaisonLoading] = useState(false);
   const [beneficeKgSaisi, setBeneficeKgSaisi] = useState(() => localStorage.getItem('gsilure_benefice_kg') || '');
   const [beneficeKg, setBeneficeKg] = useState(() => Number(localStorage.getItem('gsilure_benefice_kg') || 0));
+  // Filtre et données autonomes du graphique Bénéfice.
+  const [graphBeneficeFiltre, setGraphBeneficeFiltre] = useState('mois');
+  const [graphBeneficeDebut, setGraphBeneficeDebut] = useState(() => `${new Date().getFullYear()}-${String(new Date().getMonth()+1).padStart(2,'0')}-01`);
+  const [graphBeneficeFin, setGraphBeneficeFin] = useState(todayStr());
+  const [graphBeneficeData, setGraphBeneficeData] = useState({ jours: [], totalArgent: 0, kg: 0 });
+  const [graphBeneficeLoading, setGraphBeneficeLoading] = useState(false);
 
   // Gestion du mode période
   const [periodes, setPeriodes] = useState([]);
@@ -328,6 +334,43 @@ export default function AdminDashboard() {
     }).finally(() => { if (!annule) setGraphComparaisonLoading(false); });
     return () => { annule = true; };
   }, [graphComparaisonFiltre, graphComparaisonDebut, graphComparaisonFin]);
+
+  // Le bénéfice possède son propre filtre et son propre chargement API.
+  useEffect(() => {
+    const dates = graphBeneficeFiltre === 'periode'
+      ? { debut: graphBeneficeDebut, fin: graphBeneficeFin }
+      : datesPourFiltre(graphBeneficeFiltre);
+    if (!dates.debut || !dates.fin || dates.debut > dates.fin) return;
+    let annule = false;
+    setGraphBeneficeLoading(true);
+    const params = new URLSearchParams({ date_debut: dates.debut, date_fin: dates.fin });
+    api.get(`/ventes/admin-graphiques?${params}`)
+      .then(r => {
+        if (annule) return;
+        const ventesParJour = new Map();
+        (r.data?.ventes || []).forEach(v => {
+          const key = String(v.date).slice(0, 10);
+          ventesParJour.set(key, (ventesParJour.get(key) || 0) + Number(v.ca || 0));
+        });
+        const ajoutsParJour = new Map();
+        (r.data?.ajouts_caisse || []).forEach(a => {
+          const key = String(a.date).slice(0, 10);
+          ajoutsParJour.set(key, (ajoutsParJour.get(key) || 0) + Number(a.montant || 0));
+        });
+        const datesSet = new Set([...ventesParJour.keys(), ...ajoutsParJour.keys()]);
+        const jours = [...datesSet].sort().map(jour => {
+          const ventes = ventesParJour.get(jour) || 0;
+          const ajouts = ajoutsParJour.get(jour) || 0;
+          const argent = ventes + ajouts;
+          return { date: jour, date_label: new Date(`${jour}T12:00:00`).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' }), ventes, ajouts, argent, kg_convertis: argent / 2500, benefice: (argent / 2500) * beneficeKg };
+        });
+        const totalArgent = jours.reduce((sum, j) => sum + j.argent, 0);
+        setGraphBeneficeData({ jours, totalArgent, kg: totalArgent / 2500 });
+      })
+      .catch(err => { console.error('Chargement graphique bénéfice:', err); if (!annule) setGraphBeneficeData({ jours: [], totalArgent: 0, kg: 0 }); })
+      .finally(() => { if (!annule) setGraphBeneficeLoading(false); });
+    return () => { annule = true; };
+  }, [graphBeneficeFiltre, graphBeneficeDebut, graphBeneficeFin, beneficeKg]);
 
   const validerBeneficeKg = () => {
     const montant = Number(beneficeKgSaisi);
@@ -970,12 +1013,16 @@ export default function AdminDashboard() {
               </form>
             </div>
             <div className="p-3 sm:p-4">
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                <div><p className="text-xs text-slate-500">Filtre indépendant du bénéfice</p><div className="mt-1 flex flex-wrap items-center gap-2"><select aria-label="Filtre du graphique bénéfice" value={graphBeneficeFiltre} onChange={e => setGraphBeneficeFiltre(e.target.value)} className="text-xs border border-slate-200 rounded-lg px-2 py-1.5 bg-white text-slate-600"><option value="semaine">Semaine</option><option value="mois">Mois</option><option value="annee">Année</option><option value="periode">Période personnalisée</option></select>{graphBeneficeFiltre === 'periode' && <><input aria-label="Début bénéfice" type="date" value={graphBeneficeDebut} max={graphBeneficeFin || todayStr()} onChange={e => setGraphBeneficeDebut(e.target.value)} className="text-xs border border-slate-200 rounded-lg px-2 py-1.5 bg-white text-slate-600"/><input aria-label="Fin bénéfice" type="date" value={graphBeneficeFin} min={graphBeneficeDebut} max={todayStr()} onChange={e => setGraphBeneficeFin(e.target.value)} className="text-xs border border-slate-200 rounded-lg px-2 py-1.5 bg-white text-slate-600"/></>}</div></div>
+                {graphBeneficeLoading && <span className="text-xs text-slate-400">Actualisation…</span>}
+              </div>
               <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-                <div><p className="text-xs text-slate-500">Bénéfice estimé sur la période</p><p className="text-xl sm:text-2xl font-bold text-emerald-700">{(graphData.ventes.reduce((sum, v) => sum + Number(v.kg || 0), 0) * beneficeKg).toLocaleString('fr-FR', { maximumFractionDigits: 0 })} F CFA</p></div>
+                <div><p className="text-xs text-slate-500">Argent ventes + ajouts en caisse</p><p className="text-sm font-bold text-slate-700">{graphBeneficeData.totalArgent.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} F CFA</p><p className="text-xs text-slate-500">Équivalent : {graphBeneficeData.kg.toLocaleString('fr-FR', { maximumFractionDigits: 2 })} kg (2 500 F = 1 kg)</p><p className="text-xs text-slate-500 mt-1">Bénéfice estimé sur la période</p><p className="text-xl sm:text-2xl font-bold text-emerald-700">{(graphBeneficeData.kg * beneficeKg).toLocaleString('fr-FR', { maximumFractionDigits: 0 })} F CFA</p></div>
                 <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">{beneficeKg.toLocaleString('fr-FR')} F/kg</span>
               </div>
-              <div className="h-52 sm:h-60 w-full min-w-0"><ResponsiveContainer width="100%" height="100%"><LineChart data={graphData.ventes.map(v => ({ ...v, benefice: Number(v.kg || 0) * beneficeKg }))} margin={{ top: 8, right: 8, left: -12, bottom: 8 }}><defs><linearGradient id="beneficeLine" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#10b981" stopOpacity={0.22}/><stop offset="100%" stopColor="#10b981" stopOpacity={0}/></linearGradient></defs><CartesianGrid stroke="#e2e8f0" strokeDasharray="3 4" vertical={false}/><XAxis dataKey="date_label" tick={{ fontSize: 10, fill: '#64748b' }} tickMargin={8} minTickGap={18}/><YAxis tick={{ fontSize: 10, fill: '#64748b' }} width={56} tickFormatter={v => v >= 1000 ? `${Math.round(v/1000)}k` : v}/><Tooltip contentStyle={{ borderRadius: 12, border: '1px solid #d1fae5', boxShadow: '0 8px 24px rgba(15,23,42,.08)', fontSize: 12 }} formatter={v => [`${Number(v).toLocaleString('fr-FR')} FCFA`, 'Bénéfice estimé']}/><Line type="monotone" dataKey="benefice" name="Bénéfice estimé" stroke="#059669" strokeWidth={3} activeDot={{ r: 5, strokeWidth: 0 }} dot={false}/></LineChart></ResponsiveContainer></div>
-              <p className="mt-2 text-xs leading-relaxed text-slate-500">Calcul : kilogrammes vendus × bénéfice/kg validé. Il s’agit d’une estimation, pas d’un bénéfice comptable réel.</p>
+              {graphBeneficeData.jours.length ? <div className="h-52 sm:h-60 w-full min-w-0"><ResponsiveContainer width="100%" height="100%"><LineChart data={graphBeneficeData.jours} margin={{ top: 8, right: 8, left: -12, bottom: 8 }}><CartesianGrid stroke="#e2e8f0" strokeDasharray="3 4" vertical={false}/><XAxis dataKey="date_label" tick={{ fontSize: 10, fill: '#64748b' }} tickMargin={8} minTickGap={18}/><YAxis tick={{ fontSize: 10, fill: '#64748b' }} width={56} tickFormatter={v => v >= 1000 ? `${Math.round(v/1000)}k` : v}/><Tooltip contentStyle={{ borderRadius: 12, border: '1px solid #d1fae5', boxShadow: '0 8px 24px rgba(15,23,42,.08)', fontSize: 12 }} formatter={(v, name) => [`${Number(v).toLocaleString('fr-FR', { maximumFractionDigits: 2 })} ${name === 'kg_convertis' ? 'kg' : 'FCFA'}`, name === 'benefice' ? 'Bénéfice estimé' : name === 'argent' ? 'Ventes + ajouts' : name]}/><Line type="monotone" dataKey="benefice" name="Bénéfice estimé" stroke="#059669" strokeWidth={3} activeDot={{ r: 5, strokeWidth: 0 }} dot={false}/></LineChart></ResponsiveContainer></div> : <p className="py-8 text-center text-sm text-slate-400">Aucune vente encaissée ou aucun ajout en caisse sur cette période.</p>}
+              <p className="mt-2 text-xs leading-relaxed text-slate-500">Calcul : (argent réellement reçu des ventes + ajouts approuvés en caisse) ÷ 2 500 = kg convertis, puis kg convertis × bénéfice/kg validé. Les retraits ne sont pas inclus.</p>
             </div>
           </div>
         </div>
