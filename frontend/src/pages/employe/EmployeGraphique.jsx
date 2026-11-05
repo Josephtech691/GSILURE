@@ -5,7 +5,6 @@ import { formatSafeDate } from '../../lib/date';
 import { fr } from 'date-fns/locale';
 import api from '../../lib/api';
 import { useAuth } from '../../contexts/AuthContext';
-import { getSocket } from '../../lib/socket';
 import { useToast, ToastDisplay } from '../../components/ui/Toast';
 
 const moisOptions = () => {
@@ -64,11 +63,6 @@ export default function EmployeGraphique() {
     setMvLoading(true);
     try {
       await api.post('/ventes/mouvements-caisse', { ...mvForm, mois });
-      const socket = getSocket();
-      socket?.connected && socket.emit('demande-soumise', {
-        type: 'mouvement_caisse',
-        message: `${mvForm.type === 'ajout' ? '➕' : '➖'} Mouvement de caisse : ${parseFloat(mvForm.montant).toLocaleString('fr')} FCFA — ${mvForm.commentaire}`,
-      });
       setShowMouvement(false);
       setMvForm({ type: 'ajout', montant: '', commentaire: '', mois: '' });
       show('Demande de mouvement envoyée au patron ✓', 'success');
@@ -82,11 +76,6 @@ export default function EmployeGraphique() {
     setEncLoading(true);
     try {
       await api.post('/ventes/encaissements', { ...encForm, mois });
-      const socket = getSocket();
-      socket?.connected && socket.emit('demande-soumise', {
-        type: 'encaissement',
-        message: `💰 Versement de ${parseFloat(encForm.montant).toLocaleString('fr')} FCFA pour ${mois}`,
-      });
       setShowEncaissement(false);
       setEncForm({ montant: '', commentaire: '' });
       show('Versement soumis pour approbation ✓', 'success');
@@ -163,7 +152,7 @@ export default function EmployeGraphique() {
                   <Tooltip formatter={v => [`${parseFloat(v).toFixed(1)} kg`, 'Kg']} contentStyle={{ fontSize: 12, borderRadius: 8 }} />
                   {typeChart === 'bar'
                     ? <Bar dataKey="kg_vendus" fill="#1a78ed" radius={[4,4,0,0]} />
-                    : <Line type="monotone" dataKey="kg_vendus" stroke="#1a78ed" strokeWidth={2} dot={{ r: 3 }} />}
+                    : <Line type="linear" dataKey="kg_vendus" stroke="#1a78ed" strokeWidth={2} dot={{ r: 3 }} />}
                 </Chart>
               </ResponsiveContainer>
             )}
@@ -183,7 +172,7 @@ export default function EmployeGraphique() {
                   <Tooltip formatter={v => [`${parseInt(v).toLocaleString('fr')} FCFA`, 'Encaissé']} contentStyle={{ fontSize: 12, borderRadius: 8 }} />
                   {typeChart === 'bar'
                     ? <Bar dataKey="montant_encaisse" fill="#0d937c" radius={[4,4,0,0]} />
-                    : <Line type="monotone" dataKey="montant_encaisse" stroke="#0d937c" strokeWidth={2} dot={{ r: 3 }} />}
+                    : <Line type="linear" dataKey="montant_encaisse" stroke="#0d937c" strokeWidth={2} dot={{ r: 3 }} />}
                 </Chart>
               </ResponsiveContainer>
             )}

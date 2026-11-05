@@ -4,7 +4,6 @@ import { formatSafeDate } from '../../lib/date';
 import { fr } from 'date-fns/locale';
 import api from '../../lib/api';
 import { useAuth } from '../../contexts/AuthContext';
-import { getSocket } from '../../lib/socket';
 import Chat from '../../components/chat/Chat';
 import { useToast, ToastDisplay } from '../../components/ui/Toast';
 
@@ -254,8 +253,6 @@ export default function EmployeJournee() {
   const demanderAnnulation = async (clientId, motif) => {
     try {
       await api.post(`/ventes/clients/${clientId}/annuler-reste`, { motif });
-      const socket = getSocket();
-      socket?.connected && socket.emit('demande-soumise', { type: 'annulation_reste', date, message: `Demande d'annulation de reste (${date})` });
       await charger();
       show('Demande d\'annulation envoyée ✓', 'success');
     } catch (err) { show(err.response?.data?.message || 'Erreur', 'error'); }
@@ -266,8 +263,6 @@ export default function EmployeJournee() {
     if (!journee || !demandeMotif.trim()) return;
     try {
       await api.post('/ventes/demandes-modification', { journee_id: journee.id, motif: demandeMotif });
-      const socket = getSocket();
-      socket?.connected && socket.emit('demande-soumise', { type: 'modification_journee', date, motif: demandeMotif, journee_id: journee.id, message: `${user.prenom} demande une modification pour le ${date}` });
       setShowDemandeForm(false); setDemandeMotif('');
       show('Demande envoyée au patron ✓', 'success');
     } catch (err) { show(err.response?.data?.message || 'Erreur', 'error'); }
@@ -281,8 +276,6 @@ export default function EmployeJournee() {
     setPerteLoading(true);
     try {
       await api.post("/pertes", { ...perteForm, type_perte: "mort" });
-      const socket = getSocket();
-      socket?.connected && socket.emit("demande-soumise", { type: "perte_stock", message: `Perte : ${perteForm.kg_perdus} kg de ${perteForm.type_stock}` });
       setShowPerteForm(false);
       setPerteForm({ type_stock:"", poids_categorie:"", bac_numero:"", kg_perdus:"", commentaire:"" });
       show("Perte declaree OK", "success");
