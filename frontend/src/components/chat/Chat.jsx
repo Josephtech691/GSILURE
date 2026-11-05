@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { getSocket, connectSocket } from '../../lib/socket';
-import api, { API_ORIGIN } from '../../lib/api';
+import api from '../../lib/api';
 import Avatar from '../ui/Avatar';
 
 
@@ -17,42 +16,46 @@ export default function Chat({ date }) {
 
   const scrollBas = useCallback(() => setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 50), []);
 
+  // Vercel Functions ne gardent pas de connexion Socket.IO persistante.
+  // Le chat utilise donc l'API REST et un polling léger.
   useEffect(() => {
     if (!date || !ouvert) return;
-    const socket = connectSocket();
-
-    const onConnect = () => { setConnecte(true); socket.emit('rejoindre-salon', { date }); };
-    const onDisconnect = () => setConnecte(false);
-    const onHistorique = (msgs) => { setMessages(msgs); scrollBas(); };
-    const onMessage = (msg) => { setMessages(p => p.find(m => m.id === msg.id) ? p : [...p, msg]); scrollBas(); };
-
-    socket.on('connect', onConnect);
-    socket.on('disconnect', onDisconnect);
-    socket.on('historique-messages', onHistorique);
-    socket.on('message-recu', onMessage);
-    if (socket.connected) onConnect();
-
-    return () => { socket.off('connect', onConnect); socket.off('disconnect', onDisconnect); socket.off('historique-messages', onHistorique); socket.off('message-recu', onMessage); };
+    let actif = true;
+    const charger = async () => {
+      try {
+        const res = await api.get(`/chat/${date}`);
+        if (!actif) return;
+        setMessages(prev => {
+          const incoming = Array.isArray(res.data) ? res.data : [];
+          if (incoming.length !== prev.length || incoming[incoming.length - 1]?.id !== prev[prev.length - 1]?.id) {
+            scrollBas();
+            return incoming;
+          }
+          return prev;
+        });
+        setConnecte(true);
+      } catch { if (actif) setConnecte(false); }
+    };
+    charger();
+    const timer = window.setInterval(charger, 4000);
+    return () => { actif = false; window.clearInterval(timer); };
   }, [date, ouvert, scrollBas]);
 
   const envoyer = async (e) => {
     e.preventDefault();
     if (!texte.trim() || envoi) return;
     setEnvoi(true);
-    const socket = getSocket();
-    if (socket?.connected) {
-      socket.emit('nouveau-message', { date, contenu: texte.trim() });
+    try {
+      const res = await api.post(`/chat/${date}`, { contenu: texte.trim() });
+      setMessages(p => p.some(m => m.id === res.data.id) ? p : [...p, res.data]);
       setTexte('');
-    } else {
-      try {
-        const res = await api.post(`/chat/${date}`, { contenu: texte.trim() });
-        setMessages(p => [...p, res.data]);
-        setTexte('');
-        scrollBas();
-      } catch {}
+      scrollBas();
+    } catch (err) {
+      if (!err?.queued) setConnecte(false);
+    } finally {
+      setEnvoi(false);
+      inputRef.current?.focus();
     }
-    setEnvoi(false);
-    inputRef.current?.focus();
   };
 
   const formatH = (ts) => new Date(ts).toLocaleTimeString('fr', { hour: '2-digit', minute: '2-digit' });
@@ -68,7 +71,7 @@ export default function Chat({ date }) {
           {messages.length > 0 && <span className="text-xs text-slate-400">({messages.length})</span>}
         </div>
         <div className="flex items-center gap-2">
-          {connecte && ouvert && <span className="flex items-center gap-1 text-xs text-water-600"><span className="w-1.5 h-1.5 bg-water-500 rounded-full animate-pulse"/>En ligne</span>}
+          {connecte && ouvert && <span className="flex items-center gap-1 text-xs text-water-600"><span className="w-1.5 h-1.5 bg-water-500 rounded-full animate-pulse"/>Connecté</span>}
           <span className="text-slate-400 text-sm">{ouvert ? '▲' : '▼'}</span>
         </div>
       </button>
