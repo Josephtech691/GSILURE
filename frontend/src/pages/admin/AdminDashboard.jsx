@@ -488,37 +488,16 @@ export default function AdminDashboard() {
   const moisOptions = getMoisOptions();
 
   const couleurCA = '#f97316';
-  // Teinte unique par employé, différente de l'orange du CA, même si la liste grandit.
-  const couleurEmploye = index => `hsl(${(190 + index * 137.508) % 360}, 75%, 55%)`;
-  const caTotalPeriode = (graphData.ventes || []).reduce((sum, vente) => sum + Number(vente.ca || 0), 0);
-  const employesAvecParts = (graphData.employes || []).filter(emp => Number(emp.ca || 0) > 0 || Number(emp.kg || 0) > 0).map((emp, index) => ({
-    ...emp,
-    cleSerie: `employe_${emp.employe_id}`,
-    couleur: couleurEmploye(index),
-    partExacte: caTotalPeriode > 0 ? Math.max(0, Number(emp.ca || 0)) / caTotalPeriode * 100 : 0,
-    theorique: Number(emp.kg || 0) * 2500,
+  const couleurKg = '#38bdf8';
+  // Agrégats journaliers : le graphique présente désormais les ventes globales,
+  // sans ventilation ni pourcentage par employé.
+  const graphSeriesData = (graphData.ventes || []).map(jour => ({
+    ...jour,
+    ca_total: Number(jour.ca || 0),
+    kg_total: Number(jour.kg || 0),
   }));
-  // Arrondis par la méthode des plus forts restes : les pourcentages affichés totalisent exactement 100 %.
-  const partsArrondies = employesAvecParts.map(emp => ({ id: emp.employe_id, entier: Math.floor(emp.partExacte), reste: emp.partExacte - Math.floor(emp.partExacte) }));
-  let pointsARepartir = caTotalPeriode > 0 ? Math.max(0, 100 - partsArrondies.reduce((sum, p) => sum + p.entier, 0)) : 0;
-  partsArrondies.sort((a, b) => b.reste - a.reste);
-  for (let i = 0; i < pointsARepartir && i < partsArrondies.length; i++) partsArrondies[i].entier += 1;
-  const partsEntieresParEmploye = new Map(partsArrondies.map(p => [String(p.id), p.entier]));
-  const employeSeries = employesAvecParts.map(emp => ({
-    ...emp,
-    performance: emp.partExacte,
-    performanceAffichee: partsEntieresParEmploye.get(String(emp.employe_id)) || 0,
-  }));
-  const graphSeriesData = (graphData.ventes || []).map(jour => {
-    const ligne = { ...jour, ca_total: Number(jour.ca || 0) };
-    employeSeries.forEach(emp => {
-      const detail = (graphData.employes_par_jour || []).find(item =>
-        String(item.date) === String(jour.date) && String(item.employe_id) === String(emp.employe_id)
-      );
-      ligne[emp.cleSerie] = detail ? Number(detail.ca || 0) : 0;
-    });
-    return ligne;
-  });
+  const caTotalPeriode = graphSeriesData.reduce((sum, jour) => sum + jour.ca_total, 0);
+  const kgTotalPeriode = graphSeriesData.reduce((sum, jour) => sum + jour.kg_total, 0);
 
   return (
     <div className="space-y-6 max-w-5xl">
@@ -908,44 +887,19 @@ export default function AdminDashboard() {
                 <input aria-label="Fin performance" type="date" value={graphFin} min={graphDebut} max={todayStr()} onChange={e => setGraphFin(e.target.value)} className="rounded-lg border border-slate-500 bg-slate-800 px-2 py-1.5 text-xs text-white" />
               </>}
             </div>
-            <div className="grid grid-cols-4 gap-1.5 sm:gap-4">
-              {employeSeries.map((emp) => {
-                const pct = Math.max(0, Math.min(100, emp.performance));
-                return (
-                  <div key={emp.employe_id} className="min-w-0 flex gap-1 sm:gap-2">
-                    <div className="relative w-2 sm:w-3 shrink-0 overflow-hidden rounded-full bg-slate-100/95">
-                      <div className="absolute bottom-0 left-0 right-0 rounded-full transition-all"
-                        style={{ height: `${pct}%`, backgroundColor: emp.couleur }} />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm sm:text-3xl font-bold leading-tight" style={{ color: emp.couleur }}>
-                        {emp.performanceAffichee}%
-                      </p>
-                      <div className="my-1 h-1 sm:my-2 sm:h-1.5 w-7 sm:w-12 rounded-full" style={{ backgroundColor: emp.couleur }} />
-                      <p className="truncate text-[8px] sm:text-sm font-bold uppercase tracking-tight">{emp.employe_nom}</p>
-                      <p className="mt-1 text-[7px] sm:text-xs leading-tight text-slate-200">
-                        Encaissé<br />
-                        <strong className="text-white">{Number(emp.ca || 0).toLocaleString('fr-FR', { maximumFractionDigits: 0 })} F</strong>
-                      </p>
-                      <p className="mt-1 text-[7px] sm:text-xs leading-tight text-slate-200">
-                        Kg vendus<br />
-                        <strong className="text-white">{Number(emp.kg || 0).toLocaleString('fr-FR', { maximumFractionDigits: 1 })} kg</strong>
-                      </p>
-                      <p className="mt-1 text-[7px] sm:text-xs leading-tight text-slate-200">
-                        Théorique<br />
-                        <strong className="text-white">{emp.theorique.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} F</strong>
-                      </p>
-                    </div>
-                  </div>
-                );
-              })}
-              {employeSeries.length === 0 && (
-                <p className="col-span-4 py-8 text-center text-xs text-slate-300">Aucune vente pour cette période.</p>
-              )}
+            <div className="grid grid-cols-2 gap-2 sm:gap-4">
+              <div className="rounded-xl border border-sky-400/30 bg-sky-500/10 p-3 sm:p-4">
+                <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-wide text-sky-200">Kg vendus</p>
+                <p className="mt-1 text-xl sm:text-3xl font-bold text-white">{kgTotalPeriode.toLocaleString('fr-FR', { maximumFractionDigits: 2 })} kg</p>
+              </div>
+              <div className="rounded-xl border border-orange-400/30 bg-orange-500/10 p-3 sm:p-4">
+                <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-wide text-orange-200">Chiffre d’affaires</p>
+                <p className="mt-1 text-xl sm:text-3xl font-bold text-white">{caTotalPeriode.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} FCFA</p>
+              </div>
             </div>
             <div className="mt-3 sm:mt-6 border-t border-slate-500/70 pt-2 sm:pt-4">
               <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-                <h3 className="text-xs sm:text-base font-bold">Évolution du chiffre d’affaires et des employés</h3>
+                <h3 className="text-xs sm:text-base font-bold">Évolution du chiffre d’affaires et des kg vendus</h3>
                 <div className="flex rounded-lg border border-slate-500 overflow-hidden shrink-0">
                   {['line','bar'].map(type => <button key={type} type="button" onClick={() => setTypeGraphCA(type)} className={`px-2 py-1 text-[10px] sm:text-xs ${typeGraphCA === type ? 'bg-sky-600 text-white' : 'bg-slate-700 text-slate-200'}`}>{type === 'line' ? '📈 Courbe' : '📊 Bâtons'}</button>)}
                 </div>
@@ -958,23 +912,25 @@ export default function AdminDashboard() {
                   {typeGraphCA === 'line' ? <LineChart data={graphSeriesData} margin={{ top: 8, right: 12, left: 8, bottom: 0 }}>
                     <CartesianGrid stroke="#697176" strokeDasharray="2 3" vertical />
                     <XAxis dataKey="date_label" tick={{ fontSize: 9, fill: '#f1f5f9' }} tickMargin={4} minTickGap={12} axisLine={{ stroke: '#94a3b8' }} tickLine={false} />
-                    <YAxis tick={{ fontSize: 10, fill: '#f1f5f9' }} width={66} axisLine={{ stroke: '#94a3b8' }} tickLine={{ stroke: '#94a3b8' }} tickFormatter={v => `${Number(v).toLocaleString('fr-FR', { notation: 'compact', maximumFractionDigits: 1 })} F`} domain={[0, 'auto']} />
-                    <Tooltip contentStyle={{ backgroundColor: '#252a2d', border: '1px solid #64748b', borderRadius: 8, color: '#fff', fontSize: 11 }} formatter={(v, name) => [`${Number(v).toLocaleString('fr-FR')} F`, name === 'ca_total' ? 'Chiffre d’affaires total' : name]} />
-                    <Line type="linear" dataKey="ca_total" name="Chiffre d’affaires" stroke={couleurCA} strokeWidth={3} dot={false} />
-                    {employeSeries.map(emp => <Line key={emp.employe_id} type="linear" dataKey={emp.cleSerie} name={emp.employe_nom} stroke={emp.couleur} strokeWidth={2} dot={false} activeDot={{ r: 3 }} connectNulls />)}
+                    <YAxis yAxisId="ca" orientation="left" tick={{ fontSize: 9, fill: '#fdba74' }} width={58} axisLine={{ stroke: couleurCA }} tickLine={{ stroke: couleurCA }} tickFormatter={v => Number(v).toLocaleString('fr-FR', { notation: 'compact', maximumFractionDigits: 1 })} domain={[0, 'auto']} />
+                    <YAxis yAxisId="kg" orientation="right" tick={{ fontSize: 9, fill: '#7dd3fc' }} width={48} axisLine={{ stroke: couleurKg }} tickLine={{ stroke: couleurKg }} tickFormatter={v => `${Number(v).toLocaleString('fr-FR', { maximumFractionDigits: 1 })}`} domain={[0, 'auto']} />
+                    <Tooltip contentStyle={{ backgroundColor: '#252a2d', border: '1px solid #64748b', borderRadius: 8, color: '#fff', fontSize: 11 }} formatter={(v, name) => [name === 'Kg vendus' ? `${Number(v).toLocaleString('fr-FR', { maximumFractionDigits: 2 })} kg` : `${Number(v).toLocaleString('fr-FR', { maximumFractionDigits: 0 })} FCFA`, name]} />
+                    <Line yAxisId="ca" type="linear" dataKey="ca_total" name="Chiffre d’affaires" stroke={couleurCA} strokeWidth={3} dot={{ r: 2 }} activeDot={{ r: 4 }} />
+                    <Line yAxisId="kg" type="linear" dataKey="kg_total" name="Kg vendus" stroke={couleurKg} strokeWidth={3} dot={{ r: 2 }} activeDot={{ r: 4 }} />
                   </LineChart> : <BarChart data={graphSeriesData} margin={{ top: 8, right: 12, left: 8, bottom: 0 }}>
                     <CartesianGrid stroke="#697176" strokeDasharray="2 3" vertical />
                     <XAxis dataKey="date_label" tick={{ fontSize: 9, fill: '#f1f5f9' }} tickMargin={4} minTickGap={12} axisLine={{ stroke: '#94a3b8' }} tickLine={false} />
-                    <YAxis tick={{ fontSize: 10, fill: '#f1f5f9' }} width={66} axisLine={{ stroke: '#94a3b8' }} tickLine={{ stroke: '#94a3b8' }} tickFormatter={v => `${Number(v).toLocaleString('fr-FR', { notation: 'compact', maximumFractionDigits: 1 })} F`} domain={[0, 'auto']} />
-                    <Tooltip contentStyle={{ backgroundColor: '#252a2d', border: '1px solid #64748b', borderRadius: 8, color: '#fff', fontSize: 11 }} formatter={(v, name) => [`${Number(v).toLocaleString('fr-FR')} F`, name === 'ca_total' ? 'Chiffre d’affaires total' : name]} />
-                    <Bar dataKey="ca_total" name="Chiffre d’affaires" fill={couleurCA} />
-                    {employeSeries.map(emp => <Bar key={emp.employe_id} dataKey={emp.cleSerie} name={emp.employe_nom} fill={emp.couleur} />)}
+                    <YAxis yAxisId="ca" orientation="left" tick={{ fontSize: 9, fill: '#fdba74' }} width={58} tickFormatter={v => Number(v).toLocaleString('fr-FR', { notation: 'compact', maximumFractionDigits: 1 })} domain={[0, 'auto']} />
+                    <YAxis yAxisId="kg" orientation="right" tick={{ fontSize: 9, fill: '#7dd3fc' }} width={48} tickFormatter={v => Number(v).toLocaleString('fr-FR', { maximumFractionDigits: 1 })} domain={[0, 'auto']} />
+                    <Tooltip contentStyle={{ backgroundColor: '#252a2d', border: '1px solid #64748b', borderRadius: 8, color: '#fff', fontSize: 11 }} formatter={(v, name) => [name === 'Kg vendus' ? `${Number(v).toLocaleString('fr-FR', { maximumFractionDigits: 2 })} kg` : `${Number(v).toLocaleString('fr-FR', { maximumFractionDigits: 0 })} FCFA`, name]} />
+                    <Bar yAxisId="ca" dataKey="ca_total" name="Chiffre d’affaires" fill={couleurCA} />
+                    <Bar yAxisId="kg" dataKey="kg_total" name="Kg vendus" fill={couleurKg} />
                   </BarChart>}
                 </ResponsiveContainer>
               </div>
-              <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1">
-                <span className="flex items-center gap-1 text-[8px] sm:text-xs text-slate-100"><span className="inline-block h-2 w-2 rounded-full" style={{ backgroundColor: couleurCA }} /> Chiffre d’affaires</span>
-                {employeSeries.map(emp => <span key={emp.employe_id} className="flex items-center gap-1 text-[8px] sm:text-xs text-slate-100"><span className="inline-block h-2 w-2 rounded-full" style={{ backgroundColor: emp.couleur }} />{emp.employe_nom}</span>)}
+              <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
+                <span className="flex items-center gap-1 text-[10px] sm:text-xs text-slate-100"><span className="inline-block h-2 w-2 rounded-full" style={{ backgroundColor: couleurCA }} /> Chiffre d’affaires (FCFA)</span>
+                <span className="flex items-center gap-1 text-[10px] sm:text-xs text-slate-100"><span className="inline-block h-2 w-2 rounded-full" style={{ backgroundColor: couleurKg }} /> Kg vendus</span>
               </div>
             </div>
           </div>
