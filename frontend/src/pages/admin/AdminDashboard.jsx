@@ -291,12 +291,15 @@ export default function AdminDashboard() {
     Promise.all([1, 0].map(async decalage => {
       let { debut, fin } = datesPourFiltre(graphComparaisonFiltre, decalage);
       if (graphComparaisonFiltre === 'semaine') {
-        const now = new Date(); const friday = new Date(now);
-        const daysSinceFriday = (now.getDay() - 5 + 7) % 7;
-        friday.setDate(now.getDate() - daysSinceFriday - (7 * decalage));
-        const sunday = new Date(friday); sunday.setDate(friday.getDate() + 6);
+        // Semaine civile : du lundi au dimanche.
+        const now = new Date();
+        const lundi = new Date(now);
+        const joursDepuisLundi = (now.getDay() + 6) % 7; // 0 = lundi
+        lundi.setDate(now.getDate() - joursDepuisLundi - (7 * decalage));
+        const dimanche = new Date(lundi);
+        dimanche.setDate(lundi.getDate() + 6);
         const iso = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-        debut = iso(friday); fin = iso(sunday);
+        debut = iso(lundi); fin = iso(dimanche);
         if (decalage === 0 && fin > todayStr()) fin = todayStr();
       }
       const params = new URLSearchParams({ date_debut: debut, date_fin: fin });
@@ -307,7 +310,7 @@ export default function AdminDashboard() {
         let index;
         if (graphComparaisonFiltre === 'semaine') {
           const debutPeriode = new Date(`${debut}T12:00:00`);
-          index = Math.round((d - debutPeriode) / 86400000); // 7 jours, du vendredi au jeudi
+          index = Math.round((d - debutPeriode) / 86400000); // 7 jours, du lundi au dimanche
         } else if (graphComparaisonFiltre === 'mois') {
           index = d.getDate() - 1;
         } else {
