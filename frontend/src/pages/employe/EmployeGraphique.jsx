@@ -84,12 +84,12 @@ export default function EmployeGraphique() {
     finally { setEncLoading(false); }
   };
 
-  const donnees = (data?.donnees || []).map(d => ({
+  const donnees = [{ jour: 'Départ (0)', kg_vendus: 0, montant_encaisse: 0 }, ...(data?.donnees || []).map(d => ({
     ...d,
     jour: formatSafeDate(d.date, 'd MMM', { locale: fr }),
     kg_vendus: parseFloat(d.kg_vendus),
     montant_encaisse: parseFloat(d.montant_encaisse),
-  }));
+  }))];
   const cc = data?.caisse_cumulee || {};
   const t = data?.totaux_mois || {};
   const stockGlobal = data?.stock_global || {};
