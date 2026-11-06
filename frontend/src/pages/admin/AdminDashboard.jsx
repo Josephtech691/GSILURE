@@ -328,7 +328,7 @@ export default function AdminDashboard() {
       if (annule) return;
       const nombrePoints = graphComparaisonFiltre === 'semaine' ? 7 : graphComparaisonFiltre === 'mois' ? 31 : 12;
       const etiquettes = graphComparaisonFiltre === 'semaine'
-        ? ['Ven', 'Sam', 'Dim', 'Lun', 'Mar', 'Mer', 'Jeu']
+        ? ['Lun', 'Mar', 'Mer', 'Jeu', 'ven', 'Sam', 'Dim']
         : graphComparaisonFiltre === 'mois'
           ? Array.from({ length: 31 }, (_, i) => String(i + 1))
           : ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sep', 'Oct', 'Nov', 'Déc'];
