@@ -109,11 +109,12 @@ export default function AdminDashboard() {
   const [graphErreurServeur, setGraphErreurServeur] = useState(null);
   const [graphLoading, setGraphLoading] = useState(false);
   const [typeGraphCA, setTypeGraphCA] = useState('line');
-  const [graphPoidsFiltre, setGraphPoidsFiltre] = useState('mois');
+  const [graphPoidsFiltre, setGraphPoidsFiltre] = useState('journee');
+  const [graphPoidsDate, setGraphPoidsDate] = useState(todayStr());
   const [graphPoidsType, setGraphPoidsType] = useState('pie');
   const [graphPoidsDebut, setGraphPoidsDebut] = useState(() => `${new Date().getFullYear()}-${String(new Date().getMonth()+1).padStart(2,'0')}-01`);
   const [graphPoidsFin, setGraphPoidsFin] = useState(todayStr());
-  const [graphPoidsData, setGraphPoidsData] = useState({ poids_vendus: [], poids_erreur: null });
+  const [graphPoidsData, setGraphPoidsData] = useState({ poids_vendus: [], kg_vendus_par_bac: [], poids_erreur: null });
   const [graphComparaisonFiltre, setGraphComparaisonFiltre] = useState('semaine');
   const [graphComparaisonDebut, setGraphComparaisonDebut] = useState(() => `${new Date().getFullYear()}-${String(new Date().getMonth()+1).padStart(2,'0')}-01`);
   const [graphComparaisonFin, setGraphComparaisonFin] = useState(todayStr());
@@ -237,16 +238,17 @@ export default function AdminDashboard() {
   useEffect(() => {
     const dates = graphPoidsFiltre === 'periode'
       ? { debut: graphPoidsDebut, fin: graphPoidsFin }
+      : graphPoidsFiltre === 'journee' ? { debut: graphPoidsDate, fin: graphPoidsDate }
       : datesPourFiltre(graphPoidsFiltre);
     if (!dates.debut || !dates.fin || dates.debut > dates.fin) return;
     const params = new URLSearchParams({ date_debut: dates.debut, date_fin: dates.fin });
     api.get(`/ventes/admin-graphiques?${params}`)
-      .then(r => setGraphPoidsData({ poids_vendus: r.data?.poids_vendus || [], poids_erreur: r.data?.poids_erreur || null }))
+      .then(r => setGraphPoidsData({ poids_vendus: r.data?.poids_vendus || [], kg_vendus_par_bac: r.data?.kg_vendus_par_bac || [], poids_erreur: r.data?.poids_erreur || null }))
       .catch(err => {
         const e = err?.response?.data?.erreur || {};
-        setGraphPoidsData({ poids_vendus: [], poids_erreur: { message: e.message || err.message, code: e.code, detail: e.detail, hint: e.hint } });
+        setGraphPoidsData({ poids_vendus: [], kg_vendus_par_bac: [], poids_erreur: { message: e.message || err.message, code: e.code, detail: e.detail, hint: e.hint } });
       });
-  }, [graphPoidsFiltre, graphPoidsDebut, graphPoidsFin]);
+  }, [graphPoidsFiltre, graphPoidsDate, graphPoidsDebut, graphPoidsFin]);
 
   // Compare les 4 périodes sous forme de séries distinctes :
   // chaque courbe représente une semaine, un mois ou une année.
@@ -287,7 +289,16 @@ export default function AdminDashboard() {
       return decalage === 0 ? 'Cette année' : 'Année passée';
     };
     Promise.all([1, 0].map(async decalage => {
-      const { debut, fin } = datesPourFiltre(graphComparaisonFiltre, decalage);
+      let { debut, fin } = datesPourFiltre(graphComparaisonFiltre, decalage);
+      if (graphComparaisonFiltre === 'semaine') {
+        const now = new Date(); const friday = new Date(now);
+        const daysSinceFriday = (now.getDay() - 5 + 7) % 7;
+        friday.setDate(now.getDate() - daysSinceFriday - (10 * decalage));
+        const sunday = new Date(friday); sunday.setDate(friday.getDate() + 9);
+        const iso = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+        debut = iso(friday); fin = iso(sunday);
+        if (decalage === 0 && fin > todayStr()) fin = todayStr();
+      }
       const params = new URLSearchParams({ date_debut: debut, date_fin: fin });
       const r = await api.get(`/ventes/admin-graphiques?${params}`);
       const serie = {};
@@ -295,7 +306,8 @@ export default function AdminDashboard() {
         const d = new Date(`${String(v.date).slice(0, 10)}T12:00:00`);
         let index;
         if (graphComparaisonFiltre === 'semaine') {
-          index = (d.getDay() + 6) % 7; // lundi à dimanche
+          const debutPeriode = new Date(`${debut}T12:00:00`);
+          index = Math.round((d - debutPeriode) / 86400000); // vendredi à dimanche suivant (10 jours)
         } else if (graphComparaisonFiltre === 'mois') {
           index = d.getDate() - 1;
         } else {
@@ -311,9 +323,9 @@ export default function AdminDashboard() {
       };
     })).then(series => {
       if (annule) return;
-      const nombrePoints = graphComparaisonFiltre === 'semaine' ? 7 : graphComparaisonFiltre === 'mois' ? 31 : 12;
+      const nombrePoints = graphComparaisonFiltre === 'semaine' ? 10 : graphComparaisonFiltre === 'mois' ? 31 : 12;
       const etiquettes = graphComparaisonFiltre === 'semaine'
-        ? ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']
+        ? ['Ven', 'Sam', 'Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']
         : graphComparaisonFiltre === 'mois'
           ? Array.from({ length: 31 }, (_, i) => String(i + 1))
           : ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sep', 'Oct', 'Nov', 'Déc'];
@@ -947,15 +959,15 @@ export default function AdminDashboard() {
               {graphComparaisonType === 'bar' ? <BarChart data={graphComparaisonData.rows} barCategoryGap="25%"><CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" /><XAxis dataKey="point" tick={{ fontSize: 10 }} interval={graphComparaisonFiltre === 'mois' ? 4 : graphComparaisonFiltre === 'periode' ? 'preserveStartEnd' : 0} /><YAxis tickFormatter={v => `${Math.round(v/1000)}k`} tick={{ fontSize: 10 }} /><Tooltip content={({ active, payload, label }) => active && payload?.length ? <div className="rounded-lg border border-slate-200 bg-white p-3 shadow-lg text-xs"><p className="mb-2 font-semibold text-slate-700">{label}</p>{(payload[0]?.payload?.valuesSorted || []).map(item => <div key={item.nom} className="flex items-center justify-between gap-4 py-0.5"><span className="flex items-center gap-2"><span className="inline-block h-2.5 w-2.5 rounded-full" style={{ backgroundColor: item.couleur }} />{item.nom}</span><strong>{item.valeur.toLocaleString('fr-FR')} FCFA</strong></div>)}</div> : null} /><Legend content={() => <div className="flex flex-wrap justify-center gap-x-3 gap-y-1 pt-2 text-[10px]">{graphComparaisonData.series.map(serie => <span key={serie.nom} className="inline-flex items-center gap-1"><span className="inline-block h-2.5 w-2.5 rounded-full" style={{ backgroundColor: serie.couleur }} />{serie.nom}</span>)}</div>} /><Bar dataKey="maxCA" name="Comparaison des périodes" fill="transparent" isAnimationActive={false} shape={({ x, y, width, height, payload }) => { const values = payload?.valuesSorted || []; const baseline = y + height; const maxValue = Number(payload?.maxCA || 0); const barWidths = [width * 0.85, width * 0.5]; return <g>{values.map((item, index) => { if (!maxValue || item.valeur <= 0) return null; const barHeight = height * item.valeur / maxValue; const barWidth = Math.max(2, barWidths[index] || width * 0.2); return <rect key={item.nom} x={x + (width - barWidth) / 2} y={baseline - barHeight} width={barWidth} height={barHeight} fill={item.couleur} stroke="#ffffff" strokeWidth="0.5" />; })}</g>} } /></BarChart> : <LineChart data={graphComparaisonData.rows}><CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" /><XAxis dataKey="point" tick={{ fontSize: 10 }} interval={graphComparaisonFiltre === 'mois' ? 4 : graphComparaisonFiltre === 'periode' ? 'preserveStartEnd' : 0} /><YAxis tickFormatter={v => `${Math.round(v/1000)}k`} tick={{ fontSize: 10 }} /><Tooltip formatter={v => [`${Number(v).toLocaleString('fr-FR')} FCFA`]} /><Legend />{graphComparaisonData.series.map(serie => <Line key={serie.nom} type="linear" dataKey={serie.nom} name={serie.nom} stroke={serie.couleur} strokeWidth={3} connectNulls dot={false} activeDot={{ r: 5 }} />)}</LineChart>}</ResponsiveContainer></div> : <p className="py-8 text-center text-sm text-slate-400">Aucune donnée de chiffre d’affaires pour ces périodes.</p>}
           </div>
           <div className="card p-3 sm:p-5 min-w-0 overflow-hidden">
-            <div className="flex flex-wrap items-center justify-between gap-2 mb-3"><div><h3 className="text-base sm:text-lg font-bold text-slate-800">🐟 Répartition des poids vendus</h3><p className="text-xs sm:text-sm text-slate-500 mt-1">Pourcentage des kilogrammes vendus par catégorie de poids.</p></div><div className="flex flex-wrap items-center gap-2"><div className="flex rounded-lg border border-slate-200 overflow-hidden"><button type="button" onClick={() => setGraphPoidsType('pie')} className={`px-2 py-1 text-xs ${graphPoidsType === 'pie' ? 'bg-ocean-600 text-white' : 'bg-white text-slate-600'}`}>◉ Circulaire</button><button type="button" onClick={() => setGraphPoidsType('line')} className={`px-2 py-1 text-xs ${graphPoidsType === 'line' ? 'bg-ocean-600 text-white' : 'bg-white text-slate-600'}`}>📈 Courbe</button></div><select aria-label="Filtre du graphique des poids" value={graphPoidsFiltre} onChange={e => setGraphPoidsFiltre(e.target.value)} className="text-xs border border-slate-200 rounded-lg px-2 py-1.5 bg-white text-slate-600"><option value="semaine">Semaine</option><option value="mois">Mois</option><option value="annee">Année</option><option value="periode">Période personnalisée</option></select>{graphPoidsFiltre === 'periode' && <><input aria-label="Début poids" type="date" value={graphPoidsDebut} max={graphPoidsFin || todayStr()} onChange={e => setGraphPoidsDebut(e.target.value)} className="text-xs border border-slate-200 rounded-lg px-2 py-1.5 bg-white text-slate-600"/><input aria-label="Fin poids" type="date" value={graphPoidsFin} min={graphPoidsDebut} max={todayStr()} onChange={e => setGraphPoidsFin(e.target.value)} className="text-xs border border-slate-200 rounded-lg px-2 py-1.5 bg-white text-slate-600"/></>}</div></div>
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-3"><div><h3 className="text-base sm:text-lg font-bold text-slate-800">🐟 Répartition des poids vendus</h3><p className="text-xs sm:text-sm text-slate-500 mt-1">Pourcentage des kilogrammes vendus par catégorie de poids.</p></div><div className="flex flex-wrap items-center gap-2"><div className="flex rounded-lg border border-slate-200 overflow-hidden"><button type="button" onClick={() => setGraphPoidsType('pie')} className={`px-2 py-1 text-xs ${graphPoidsType === 'pie' ? 'bg-ocean-600 text-white' : 'bg-white text-slate-600'}`}>◉ Circulaire</button><button type="button" onClick={() => setGraphPoidsType('line')} className={`px-2 py-1 text-xs ${graphPoidsType === 'line' ? 'bg-ocean-600 text-white' : 'bg-white text-slate-600'}`}>📈 Courbe</button></div><select aria-label="Filtre du graphique des poids" value={graphPoidsFiltre} onChange={e => setGraphPoidsFiltre(e.target.value)} className="text-xs border border-slate-200 rounded-lg px-2 py-1.5 bg-white text-slate-600"><option value="journee">Journée</option><option value="semaine">Semaine</option><option value="mois">Mois</option><option value="annee">Année</option><option value="periode">Période personnalisée</option></select>{graphPoidsFiltre === 'journee' && <input aria-label="Journée du graphique des poids" type="date" max={todayStr()} value={graphPoidsDate} onChange={e => setGraphPoidsDate(e.target.value)} className="text-xs border border-slate-200 rounded-lg px-2 py-1.5 bg-white text-slate-600"/>}{graphPoidsFiltre === 'periode' && <><input aria-label="Début poids" type="date" value={graphPoidsDebut} max={graphPoidsFin || todayStr()} onChange={e => setGraphPoidsDebut(e.target.value)} className="text-xs border border-slate-200 rounded-lg px-2 py-1.5 bg-white text-slate-600"/><input aria-label="Fin poids" type="date" value={graphPoidsFin} min={graphPoidsDebut} max={todayStr()} onChange={e => setGraphPoidsFin(e.target.value)} className="text-xs border border-slate-200 rounded-lg px-2 py-1.5 bg-white text-slate-600"/></>}</div></div>
             {(() => {
               const poidsData = (graphPoidsData.poids_vendus || []).filter(p => Number(p.kg) > 0);
               const totalKgPoids = poidsData.reduce((sum, p) => sum + Number(p.kg || 0), 0);
               const couleursPoids = ['#f44336', '#ff9800', '#2196f3', '#d946ef', '#22c55e', '#eab308', '#06b6d4', '#8b5cf6', '#f97316'];
-              return poidsData.length ? <div className="grid grid-cols-1 sm:grid-cols-2 items-center gap-3">
+              return poidsData.length ? <div className="space-y-3"><div className="grid grid-cols-1 sm:grid-cols-2 items-center gap-3">
                 <div className="h-64 sm:h-72 min-w-0"><ResponsiveContainer width="100%" height="100%">{graphPoidsType === 'pie' ? <PieChart><Pie data={poidsData.map(p => ({ ...p, pourcentage: totalKgPoids ? Number(p.kg) / totalKgPoids * 100 : 0 }))} dataKey="kg" nameKey="poids_categorie" cx="50%" cy="50%" outerRadius="78%" paddingAngle={2} label={({ payload }) => `${Number(payload?.pourcentage || 0).toFixed(1)}%`} labelLine>{poidsData.map((p, i) => <Cell key={p.poids_categorie} fill={couleursPoids[i % couleursPoids.length]} />)}</Pie><Tooltip formatter={(v, name) => [`${Number(v).toLocaleString('fr-FR', { maximumFractionDigits: 2 })} kg`, name]} /></PieChart> : <LineChart data={poidsData} margin={{ top: 12, right: 12, left: -12, bottom: 8 }}><CartesianGrid stroke="#e2e8f0" strokeDasharray="3 3" /><XAxis dataKey="poids_categorie" tick={{ fontSize: 10 }} /><YAxis tick={{ fontSize: 10 }} /><Tooltip formatter={v => [`${Number(v).toLocaleString('fr-FR', { maximumFractionDigits: 2 })} kg`, 'Poids vendu']} /><Line type="linear" dataKey="kg" name="Poids vendu" stroke="#0d937c" strokeWidth={3} dot={{ r: 3 }} activeDot={{ r: 5 }} /></LineChart>}</ResponsiveContainer></div>
-                <div className="space-y-2">{poidsData.map((p, i) => <div key={p.poids_categorie} className="flex items-center justify-between gap-3 text-sm"><span className="flex items-center gap-2 min-w-0"><span className="w-3 h-3 rounded-sm shrink-0" style={{ backgroundColor: couleursPoids[i % couleursPoids.length] }} /><span className="truncate">{p.poids_categorie}</span></span><strong>{(Number(p.kg) / totalKgPoids * 100).toLocaleString('fr-FR', { maximumFractionDigits: 1 })}%</strong></div>)}</div>
-              </div> : graphPoidsData.poids_erreur ? <div className="m-3 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800"><p className="font-semibold">Erreur réelle du serveur — graphique des poids</p><p className="mt-1 break-words">{graphPoidsData.poids_erreur.message}</p>{graphPoidsData.poids_erreur.code && <p className="mt-1">Code PostgreSQL : <code>{graphPoidsData.poids_erreur.code}</code></p>}{graphPoidsData.poids_erreur.detail && <p className="mt-1 break-words">Détail : {graphPoidsData.poids_erreur.detail}</p>}{graphPoidsData.poids_erreur.hint && <p className="mt-1 break-words">Conseil : {graphPoidsData.poids_erreur.hint}</p>}</div> : <p className="py-10 text-center text-sm text-slate-400">Aucune vente avec une catégorie de poids renseignée sur cette période.</p>;
+                <div className="space-y-2">{poidsData.map((p, i) => <div key={p.poids_categorie} className="flex items-center justify-between gap-3 text-sm"><span className="flex items-center gap-2 min-w-0"><span className="w-3 h-3 rounded-sm shrink-0" style={{ backgroundColor: couleursPoids[i % couleursPoids.length] }} /><span className="truncate">{p.poids_categorie}</span></span><span className="font-semibold text-slate-700 whitespace-nowrap">{Number(p.kg).toLocaleString('fr-FR', { maximumFractionDigits: 2 })} kg</span><strong>{(Number(p.kg) / totalKgPoids * 100).toLocaleString('fr-FR', { maximumFractionDigits: 1 })}%</strong></div>)}</div>
+              </div><div className="sm:col-span-2 border-t border-slate-100 pt-3 mt-1"><h4 className="text-xs font-semibold text-slate-600 mb-2">Kg vendus par bac</h4><div className="grid grid-cols-2 sm:grid-cols-4 gap-2">{(graphPoidsData.kg_vendus_par_bac || []).filter(b => Number(b.kg) > 0).map(b => <div key={b.bac_numero} className="rounded-lg bg-slate-50 px-3 py-2 flex items-center justify-between text-xs"><span className="font-medium text-slate-600">Bac {b.bac_numero}</span><strong className="text-slate-800">{Number(b.kg).toLocaleString('fr-FR', { maximumFractionDigits: 2 })} kg</strong></div>)}</div>{!(graphPoidsData.kg_vendus_par_bac || []).some(b => Number(b.kg) > 0) && <p className="text-xs text-slate-400">Aucune vente attribuée à un bac sur cette période.</p>}</div></div> : graphPoidsData.poids_erreur ? <div className="m-3 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800"><p className="font-semibold">Erreur réelle du serveur — graphique des poids</p><p className="mt-1 break-words">{graphPoidsData.poids_erreur.message}</p>{graphPoidsData.poids_erreur.code && <p className="mt-1">Code PostgreSQL : <code>{graphPoidsData.poids_erreur.code}</code></p>}{graphPoidsData.poids_erreur.detail && <p className="mt-1 break-words">Détail : {graphPoidsData.poids_erreur.detail}</p>}{graphPoidsData.poids_erreur.hint && <p className="mt-1 break-words">Conseil : {graphPoidsData.poids_erreur.hint}</p>}</div> : <p className="py-10 text-center text-sm text-slate-400">Aucune vente avec une catégorie de poids renseignée sur cette période.</p>;
             })()}
           </div>
           <div className="relative card p-0 min-w-0 overflow-hidden border border-emerald-100 shadow-sm">

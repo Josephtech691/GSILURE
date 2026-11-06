@@ -237,7 +237,6 @@ export default function AdminStocks() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {[1,2,3,4,5,6,7].map(numBac => {
               const contenu = bacsParNum[numBac] || [];
-              const totalKgBac = contenu.reduce((s, b) => s + parseFloat(b.kg_total||0), 0);
               const kgRestantBac = Number(contenu[0]?.kg_disponible_bac ?? totalKgBac);
               const cls = COULEURS_BAC[numBac-1];
               return (
@@ -264,7 +263,6 @@ export default function AdminStocks() {
                     }
                   </div>
                   <div className="px-3 pb-3 pt-2 border-t border-slate-100 space-y-1">
-                    <div className="flex justify-between text-xs"><span className="text-slate-500">Stock total</span><strong className="text-slate-700">{totalKgBac.toFixed(1)} kg · {Math.round(totalKgBac * 2500).toLocaleString('fr-FR')} FCFA</strong></div>
                     <div className="flex justify-between text-xs"><span className="text-slate-500">Valeur restante</span><strong className="text-green-700">{Math.round(kgRestantBac * 2500).toLocaleString('fr-FR')} FCFA</strong></div>
                     {contenu.length > 0 && <div className="text-xs text-slate-400">Dernier dépôt : {formatDateSafe(contenu[0]?.dernier_depot, 'd MMM')} — {Number(contenu[0]?.dernier_depot_kg || 0).toFixed(1)} kg déposés</div>}
                   </div>
