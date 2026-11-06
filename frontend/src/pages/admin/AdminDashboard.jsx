@@ -293,8 +293,8 @@ export default function AdminDashboard() {
       if (graphComparaisonFiltre === 'semaine') {
         const now = new Date(); const friday = new Date(now);
         const daysSinceFriday = (now.getDay() - 5 + 7) % 7;
-        friday.setDate(now.getDate() - daysSinceFriday - (10 * decalage));
-        const sunday = new Date(friday); sunday.setDate(friday.getDate() + 9);
+        friday.setDate(now.getDate() - daysSinceFriday - (7 * decalage));
+        const sunday = new Date(friday); sunday.setDate(friday.getDate() + 6);
         const iso = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
         debut = iso(friday); fin = iso(sunday);
         if (decalage === 0 && fin > todayStr()) fin = todayStr();
@@ -307,7 +307,7 @@ export default function AdminDashboard() {
         let index;
         if (graphComparaisonFiltre === 'semaine') {
           const debutPeriode = new Date(`${debut}T12:00:00`);
-          index = Math.round((d - debutPeriode) / 86400000); // vendredi à dimanche suivant (10 jours)
+          index = Math.round((d - debutPeriode) / 86400000); // 7 jours, du vendredi au jeudi
         } else if (graphComparaisonFiltre === 'mois') {
           index = d.getDate() - 1;
         } else {
@@ -323,9 +323,9 @@ export default function AdminDashboard() {
       };
     })).then(series => {
       if (annule) return;
-      const nombrePoints = graphComparaisonFiltre === 'semaine' ? 10 : graphComparaisonFiltre === 'mois' ? 31 : 12;
+      const nombrePoints = graphComparaisonFiltre === 'semaine' ? 7 : graphComparaisonFiltre === 'mois' ? 31 : 12;
       const etiquettes = graphComparaisonFiltre === 'semaine'
-        ? ['Ven', 'Sam', 'Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']
+        ? ['Ven', 'Sam', 'Dim', 'Lun', 'Mar', 'Mer', 'Jeu']
         : graphComparaisonFiltre === 'mois'
           ? Array.from({ length: 31 }, (_, i) => String(i + 1))
           : ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sep', 'Oct', 'Nov', 'Déc'];
@@ -340,7 +340,7 @@ export default function AdminDashboard() {
         row.maxCA = Math.max(0, ...row.valuesSorted.map(item => item.valeur));
         return row;
       });
-      setGraphComparaisonData({ rows, series });
+      setGraphComparaisonData({ rows: [{ point: 'Départ (0)', ...Object.fromEntries(series.map(serie => [serie.nom, 0])), maxCA: 0, valuesSorted: [] }, ...rows], series });
     }).catch(err => {
       console.error('Comparaison du chiffre d’affaires:', err);
       if (!annule) setGraphComparaisonData({ rows: [], series: [] });
@@ -503,11 +503,11 @@ export default function AdminDashboard() {
   const couleurKg = '#38bdf8';
   // Agrégats journaliers : le graphique présente désormais les ventes globales,
   // sans ventilation ni pourcentage par employé.
-  const graphSeriesData = (graphData.ventes || []).map(jour => ({
+  const graphSeriesData = [{ date_label: 'Départ (0)', date: 'Départ (0)', ca_total: 0, kg_total: 0 }, ...(graphData.ventes || []).map(jour => ({
     ...jour,
     ca_total: Number(jour.ca || 0),
     kg_total: Number(jour.kg || 0),
-  }));
+  }))];
   const caTotalPeriode = graphSeriesData.reduce((sum, jour) => sum + jour.ca_total, 0);
   const kgTotalPeriode = graphSeriesData.reduce((sum, jour) => sum + jour.kg_total, 0);
 
@@ -965,7 +965,7 @@ export default function AdminDashboard() {
               const totalKgPoids = poidsData.reduce((sum, p) => sum + Number(p.kg || 0), 0);
               const couleursPoids = ['#f44336', '#ff9800', '#2196f3', '#d946ef', '#22c55e', '#eab308', '#06b6d4', '#8b5cf6', '#f97316'];
               return poidsData.length ? <div className="space-y-3"><div className="grid grid-cols-1 sm:grid-cols-2 items-center gap-3">
-                <div className="h-64 sm:h-72 min-w-0"><ResponsiveContainer width="100%" height="100%">{graphPoidsType === 'pie' ? <PieChart><Pie data={poidsData.map(p => ({ ...p, pourcentage: totalKgPoids ? Number(p.kg) / totalKgPoids * 100 : 0 }))} dataKey="kg" nameKey="poids_categorie" cx="50%" cy="50%" outerRadius="78%" paddingAngle={2} label={({ payload }) => `${Number(payload?.pourcentage || 0).toFixed(1)}%`} labelLine>{poidsData.map((p, i) => <Cell key={p.poids_categorie} fill={couleursPoids[i % couleursPoids.length]} />)}</Pie><Tooltip formatter={(v, name) => [`${Number(v).toLocaleString('fr-FR', { maximumFractionDigits: 2 })} kg`, name]} /></PieChart> : <LineChart data={poidsData} margin={{ top: 12, right: 12, left: -12, bottom: 8 }}><CartesianGrid stroke="#e2e8f0" strokeDasharray="3 3" /><XAxis dataKey="poids_categorie" tick={{ fontSize: 10 }} /><YAxis tick={{ fontSize: 10 }} /><Tooltip formatter={v => [`${Number(v).toLocaleString('fr-FR', { maximumFractionDigits: 2 })} kg`, 'Poids vendu']} /><Line type="linear" dataKey="kg" name="Poids vendu" stroke="#0d937c" strokeWidth={3} dot={{ r: 3 }} activeDot={{ r: 5 }} /></LineChart>}</ResponsiveContainer></div>
+                <div className="h-64 sm:h-72 min-w-0"><ResponsiveContainer width="100%" height="100%">{graphPoidsType === 'pie' ? <PieChart><Pie data={poidsData.map(p => ({ ...p, pourcentage: totalKgPoids ? Number(p.kg) / totalKgPoids * 100 : 0 }))} dataKey="kg" nameKey="poids_categorie" cx="50%" cy="50%" outerRadius="78%" paddingAngle={2} label={({ payload }) => `${Number(payload?.pourcentage || 0).toFixed(1)}%`} labelLine>{poidsData.map((p, i) => <Cell key={p.poids_categorie} fill={couleursPoids[i % couleursPoids.length]} />)}</Pie><Tooltip formatter={(v, name) => [`${Number(v).toLocaleString('fr-FR', { maximumFractionDigits: 2 })} kg`, name]} /></PieChart> : <LineChart data={[{ poids_categorie: 'Départ (0)', kg: 0 }, ...poidsData]} margin={{ top: 12, right: 12, left: -12, bottom: 8 }}><CartesianGrid stroke="#e2e8f0" strokeDasharray="3 3" /><XAxis dataKey="poids_categorie" tick={{ fontSize: 10 }} /><YAxis tick={{ fontSize: 10 }} /><Tooltip formatter={v => [`${Number(v).toLocaleString('fr-FR', { maximumFractionDigits: 2 })} kg`, 'Poids vendu']} /><Line type="linear" dataKey="kg" name="Poids vendu" stroke="#0d937c" strokeWidth={3} dot={{ r: 3 }} activeDot={{ r: 5 }} /></LineChart>}</ResponsiveContainer></div>
                 <div className="space-y-2">{poidsData.map((p, i) => <div key={p.poids_categorie} className="flex items-center justify-between gap-3 text-sm"><span className="flex items-center gap-2 min-w-0"><span className="w-3 h-3 rounded-sm shrink-0" style={{ backgroundColor: couleursPoids[i % couleursPoids.length] }} /><span className="truncate">{p.poids_categorie}</span></span><span className="font-semibold text-slate-700 whitespace-nowrap">{Number(p.kg).toLocaleString('fr-FR', { maximumFractionDigits: 2 })} kg</span><strong>{(Number(p.kg) / totalKgPoids * 100).toLocaleString('fr-FR', { maximumFractionDigits: 1 })}%</strong></div>)}</div>
               </div><div className="sm:col-span-2 border-t border-slate-100 pt-3 mt-1"><h4 className="text-xs font-semibold text-slate-600 mb-2">Kg vendus par bac</h4><div className="grid grid-cols-2 sm:grid-cols-4 gap-2">{(graphPoidsData.kg_vendus_par_bac || []).filter(b => Number(b.kg) > 0).map(b => <div key={b.bac_numero} className="rounded-lg bg-slate-50 px-3 py-2 flex items-center justify-between text-xs"><span className="font-medium text-slate-600">Bac {b.bac_numero}</span><strong className="text-slate-800">{Number(b.kg).toLocaleString('fr-FR', { maximumFractionDigits: 2 })} kg</strong></div>)}</div>{!(graphPoidsData.kg_vendus_par_bac || []).some(b => Number(b.kg) > 0) && <p className="text-xs text-slate-400">Aucune vente attribuée à un bac sur cette période.</p>}</div></div> : graphPoidsData.poids_erreur ? <div className="m-3 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800"><p className="font-semibold">Erreur réelle du serveur — graphique des poids</p><p className="mt-1 break-words">{graphPoidsData.poids_erreur.message}</p>{graphPoidsData.poids_erreur.code && <p className="mt-1">Code PostgreSQL : <code>{graphPoidsData.poids_erreur.code}</code></p>}{graphPoidsData.poids_erreur.detail && <p className="mt-1 break-words">Détail : {graphPoidsData.poids_erreur.detail}</p>}{graphPoidsData.poids_erreur.hint && <p className="mt-1 break-words">Conseil : {graphPoidsData.poids_erreur.hint}</p>}</div> : <p className="py-10 text-center text-sm text-slate-400">Aucune vente avec une catégorie de poids renseignée sur cette période.</p>;
             })()}
@@ -990,7 +990,7 @@ export default function AdminDashboard() {
                 <div><p className="text-xs text-slate-500">Argent ventes + ajouts en caisse</p><p className="text-sm font-bold text-slate-700">{graphBeneficeData.totalArgent.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} F CFA</p><p className="text-xs text-slate-500">Équivalent : {graphBeneficeData.kg.toLocaleString('fr-FR', { maximumFractionDigits: 2 })} kg (2 500 F = 1 kg)</p><p className="text-xs text-slate-500 mt-1">Bénéfice estimé sur la période</p><p className="text-xl sm:text-2xl font-bold text-emerald-700">{(graphBeneficeData.kg * beneficeKg).toLocaleString('fr-FR', { maximumFractionDigits: 0 })} F CFA</p></div>
                 <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">{beneficeKg.toLocaleString('fr-FR')} F/kg</span>
               </div>
-              {graphBeneficeData.jours.length ? <div className="h-52 sm:h-60 w-full min-w-0"><ResponsiveContainer width="100%" height="100%"><LineChart data={graphBeneficeData.jours} margin={{ top: 8, right: 8, left: -12, bottom: 8 }}><CartesianGrid stroke="#e2e8f0" strokeDasharray="3 4" vertical={false}/><XAxis dataKey="date_label" tick={{ fontSize: 10, fill: '#64748b' }} tickMargin={8} minTickGap={18}/><YAxis tick={{ fontSize: 10, fill: '#64748b' }} width={56} tickFormatter={v => v >= 1000 ? `${Math.round(v/1000)}k` : v}/><Tooltip contentStyle={{ borderRadius: 12, border: '1px solid #d1fae5', boxShadow: '0 8px 24px rgba(15,23,42,.08)', fontSize: 12 }} formatter={(v, name) => [`${Number(v).toLocaleString('fr-FR', { maximumFractionDigits: 2 })} ${name === 'kg_convertis' ? 'kg' : 'FCFA'}`, name === 'benefice' ? 'Bénéfice estimé' : name === 'argent' ? 'Ventes + ajouts' : name]}/><Line type="linear" dataKey="benefice" name="Bénéfice estimé" stroke="#059669" strokeWidth={3} activeDot={{ r: 5, strokeWidth: 0 }} dot={false}/></LineChart></ResponsiveContainer></div> : <p className="py-8 text-center text-sm text-slate-400">Aucune vente encaissée ou aucun ajout en caisse sur cette période.</p>}
+              {graphBeneficeData.jours.length ? <div className="h-52 sm:h-60 w-full min-w-0"><ResponsiveContainer width="100%" height="100%"><LineChart data={[{ date_label: 'Départ (0)', benefice: 0 }, ...graphBeneficeData.jours]} margin={{ top: 8, right: 8, left: -12, bottom: 8 }}><CartesianGrid stroke="#e2e8f0" strokeDasharray="3 4" vertical={false}/><XAxis dataKey="date_label" tick={{ fontSize: 10, fill: '#64748b' }} tickMargin={8} minTickGap={18}/><YAxis tick={{ fontSize: 10, fill: '#64748b' }} width={56} tickFormatter={v => v >= 1000 ? `${Math.round(v/1000)}k` : v}/><Tooltip contentStyle={{ borderRadius: 12, border: '1px solid #d1fae5', boxShadow: '0 8px 24px rgba(15,23,42,.08)', fontSize: 12 }} formatter={(v, name) => [`${Number(v).toLocaleString('fr-FR', { maximumFractionDigits: 2 })} ${name === 'kg_convertis' ? 'kg' : 'FCFA'}`, name === 'benefice' ? 'Bénéfice estimé' : name === 'argent' ? 'Ventes + ajouts' : name]}/><Line type="linear" dataKey="benefice" name="Bénéfice estimé" stroke="#059669" strokeWidth={3} activeDot={{ r: 5, strokeWidth: 0 }} dot={false}/></LineChart></ResponsiveContainer></div> : <p className="py-8 text-center text-sm text-slate-400">Aucune vente encaissée ou aucun ajout en caisse sur cette période.</p>}
               <p className="mt-2 text-xs leading-relaxed text-slate-500">Calcul : (argent réellement reçu des ventes + ajouts approuvés en caisse) ÷ 2 500 = kg convertis, puis kg convertis × bénéfice/kg validé. Les retraits ne sont pas inclus.</p>
             </div>
           </div>
