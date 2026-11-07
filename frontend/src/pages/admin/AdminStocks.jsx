@@ -237,7 +237,7 @@ export default function AdminStocks() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {[1,2,3,4,5,6,7].map(numBac => {
               const contenu = bacsParNum[numBac] || [];
-              const kgRestantBac = Number(contenu[0]?.kg_disponible_bac ?? totalKgBac);
+              const kgRestantBac = Number(contenu[0]?.kg_disponible_bac ?? 0);
               const cls = COULEURS_BAC[numBac-1];
               return (
                 <div key={numBac} className="card overflow-hidden">
