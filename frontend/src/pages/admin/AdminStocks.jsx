@@ -178,6 +178,11 @@ export default function AdminStocks() {
     return p?.prix_par_kg || 2500;
   };
 
+  // Résumé fiable des 7 bacs (même calcul que le total global)
+  const resumeBac = {};
+  (bacsData?.bacs_resume || []).forEach(b => { resumeBac[Number(b.bac_numero)] = b; });
+  const ecartKg = Number(totaux.ecart_non_affecte_kg || 0);
+
   const bacsParNum = {};
   (bacsData?.bacs || []).forEach(b => {
     if (!bacsParNum[b.bac_numero]) bacsParNum[b.bac_numero] = [];
@@ -200,10 +205,12 @@ export default function AdminStocks() {
       </div>
 
       {/* Totaux */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
         {[
           { label:'Kg achetés total', value:`${parseFloat(totaux.total_kg_achete||0).toFixed(1)} kg`, cls:'text-ocean-700 bg-ocean-50' },
           { label:'Kg vendus total',  value:`${parseFloat(totaux.total_kg_vendu||0).toFixed(1)} kg`,  cls:'text-water-700 bg-water-50' },
+          { label:'Kg perdus total',  value:`${parseFloat(totaux.total_kg_perdu||0).toFixed(1)} kg`,  cls:'text-red-700 bg-red-50' },
+          { label:'Kg retirés total', value:`${parseFloat(totaux.total_kg_retire||0).toFixed(1)} kg`, cls:'text-amber-700 bg-amber-50' },
           { label:'Kg en stock',      value:`${parseFloat(totaux.reste_kg||0).toFixed(1)} kg`,        cls: parseFloat(totaux.reste_kg||0)<20?'text-red-700 bg-red-50':'text-green-700 bg-green-50' },
           { label:'Valeur totale achat', value:`${parseInt(totaux.valeur_totale_achat||0).toLocaleString('fr')} F`, cls:'text-slate-700 bg-slate-50' },
         ].map(s => (
@@ -234,10 +241,18 @@ export default function AdminStocks() {
       {/* ─── VUE BACS ─── */}
       {activeTab === 'bacs' && (
         <div>
+          {Math.abs(ecartKg) >= 0.05 && (
+            <div className="mb-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-xs p-3">
+              ⚠️ Somme des bacs : <strong>{Number(totaux.somme_bacs_kg || 0).toFixed(1)} kg</strong> — Stock global : <strong>{Number(totaux.reste_kg || 0).toFixed(1)} kg</strong>.
+              Écart de <strong>{ecartKg.toFixed(1)} kg</strong> : dépôts, pertes ou ventes enregistrés sans bac précis.
+            </div>
+          )}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {[1,2,3,4,5,6,7].map(numBac => {
               const contenu = bacsParNum[numBac] || [];
-              const kgRestantBac = Number(contenu[0]?.kg_disponible_bac ?? 0);
+              const kgRestantBac = Number(resumeBac[numBac]?.kg_disponible_bac ?? contenu[0]?.kg_disponible_bac ?? 0);
+              const kgPerduBac = Number(resumeBac[numBac]?.kg_perdu_bac || 0);
+              const kgRetireBac = Number(resumeBac[numBac]?.kg_retire_bac || 0);
               const cls = COULEURS_BAC[numBac-1];
               return (
                 <div key={numBac} className="card overflow-hidden">
@@ -264,6 +279,7 @@ export default function AdminStocks() {
                   </div>
                   <div className="px-3 pb-3 pt-2 border-t border-slate-100 space-y-1">
                     <div className="flex justify-between text-xs"><span className="text-slate-500">Valeur restante</span><strong className="text-green-700">{Math.round(kgRestantBac * 2500).toLocaleString('fr-FR')} FCFA</strong></div>
+                    {(kgPerduBac > 0 || kgRetireBac > 0) && <div className="flex justify-between text-xs"><span className="text-red-600">Perdus : {kgPerduBac.toFixed(1)} kg</span><span className="text-amber-600">Retirés : {kgRetireBac.toFixed(1)} kg</span></div>}
                     {contenu.length > 0 && <div className="text-xs text-slate-400">Dernier dépôt : {formatDateSafe(contenu[0]?.dernier_depot, 'd MMM')} — {Number(contenu[0]?.dernier_depot_kg || 0).toFixed(1)} kg déposés</div>}
                   </div>
                 </div>
