@@ -244,7 +244,12 @@ export default function AdminStocks() {
           {Math.abs(ecartKg) >= 0.05 && (
             <div className="mb-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-xs p-3">
               ⚠️ Somme des bacs : <strong>{Number(totaux.somme_bacs_kg || 0).toFixed(1)} kg</strong> — Stock global : <strong>{Number(totaux.reste_kg || 0).toFixed(1)} kg</strong>.
-              Écart de <strong>{ecartKg.toFixed(1)} kg</strong> : dépôts, pertes ou ventes enregistrés sans bac précis.
+              Écart de <strong>{ecartKg.toFixed(1)} kg</strong> :
+              <ul className="mt-1 space-y-0.5">
+                {Number(totaux.depose_sans_bac_kg || 0) !== 0 && <li>• Dépôts sans bac : +{Number(totaux.depose_sans_bac_kg).toFixed(1)} kg</li>}
+                {Number(totaux.perdu_sans_bac_kg || 0) !== 0 && <li>• Pertes sans bac : −{Number(totaux.perdu_sans_bac_kg).toFixed(1)} kg</li>}
+                {Math.abs(Number(totaux.vente_non_imputee_kg || 0)) >= 0.05 && <li>• Ventes non imputées à un bac : −{Number(totaux.vente_non_imputee_kg).toFixed(1)} kg</li>}
+              </ul>
             </div>
           )}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -631,7 +636,7 @@ export default function AdminStocks() {
                   <tbody className="divide-y divide-slate-50">
                     {pertes.map(p => (
                       <tr key={p.id} className="hover:bg-slate-50">
-                        <td className="px-3 py-2 text-slate-500 text-xs">{formatDateSafe(p.created_at, 'd MMM yy')}</td>
+                        <td className="px-3 py-2 text-slate-500 text-xs">{formatDateSafe(p.date_perte_txt || p.date_perte || p.created_at, 'd MMM yy')}</td>
                         <td className="px-3 py-2">
                           <span className={`text-xs font-medium px-1.5 py-0.5 rounded-full ${p.type_perte==='mort'?'bg-red-100 text-red-700':'bg-orange-100 text-orange-700'}`}>
                             {p.type_perte === 'mort' ? '💀 Mort' : '⚖️ Poids'}
