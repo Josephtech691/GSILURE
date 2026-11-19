@@ -15,7 +15,7 @@ export default function LoginPage() {
     setLoading(true);
     try {
       const user = await login(form.email, form.password);
-      navigate(user.role === 'admin' ? '/admin' : '/employe', { replace: true });
+      navigate(user.role === 'admin' ? '/admin' : user.role === 'developer' ? '/dev' : '/employe', { replace: true });
     } catch (err) {
       setError(err.response?.data?.message || 'Identifiants incorrects.');
     } finally {
