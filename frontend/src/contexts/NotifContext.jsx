@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { useAuth } from './AuthContext';
 import api, { syncOfflineQueue } from '../lib/api';
+import { reportError } from '../lib/errorReporter';
 
 const NotifContext = createContext(null);
 
@@ -14,6 +15,9 @@ export const NotifProvider = ({ children }) => {
     const goOnline = async () => {
       setIsOnline(true);
       const result = await syncOfflineQueue();
+      if (result.errors > 0) {
+        reportError({ source: 'offline', niveau: 'warning', message: `${result.errors} action(s) hors ligne refusée(s) par le serveur à la synchronisation`, contexte: { synces: result.synced, refusees: result.errors } });
+      }
       if (result.synced > 0) {
         setSyncMsg(`✅ ${result.synced} action(s) synchronisée(s).`);
         window.setTimeout(() => setSyncMsg(null), 4000);
@@ -26,7 +30,7 @@ export const NotifProvider = ({ children }) => {
   }, []);
 
   const charger = useCallback(async () => {
-    if (!user) return;
+    if (!user || user.role === 'developer') return;
     try {
       const r = await api.get('/notifications');
       setNotifications(Array.isArray(r.data) ? r.data : []);
@@ -34,7 +38,7 @@ export const NotifProvider = ({ children }) => {
   }, [user]);
 
   useEffect(() => {
-    if (!user) { setNotifications([]); return; }
+    if (!user || user.role === 'developer') { setNotifications([]); return; }
     charger();
     const timer = window.setInterval(charger, 15000);
     return () => window.clearInterval(timer);
