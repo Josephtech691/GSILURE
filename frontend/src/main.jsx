@@ -4,17 +4,23 @@ import { BrowserRouter } from 'react-router-dom';
 import App from './App';
 import { AuthProvider } from './contexts/AuthContext';
 import { NotifProvider } from './contexts/NotifContext';
+import ErrorBoundary from './components/ErrorBoundary';
+import { initErrorReporter } from './lib/errorReporter';
 import './index.css';
+
+initErrorReporter();
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
-    <BrowserRouter>
-      <AuthProvider>
-        <NotifProvider>
-          <App />
-        </NotifProvider>
-      </AuthProvider>
-    </BrowserRouter>
+    <ErrorBoundary>
+      <BrowserRouter>
+        <AuthProvider>
+          <NotifProvider>
+            <App />
+          </NotifProvider>
+        </AuthProvider>
+      </BrowserRouter>
+    </ErrorBoundary>
   </React.StrictMode>
 );
 

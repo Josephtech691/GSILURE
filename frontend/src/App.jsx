@@ -16,6 +16,11 @@ import EmployeJournee from './pages/employe/EmployeJournee';
 import EmployeGraphique from './pages/employe/EmployeGraphique';
 import EmployeProfil from './pages/employe/EmployeProfil';
 import EmployeDemandes from './pages/employe/EmployeDemandes';
+import DevLayout from './components/layout/DevLayout';
+import DevDashboard from './pages/dev/DevDashboard';
+import DevErreurs from './pages/dev/DevErreurs';
+import DevIntegrite from './pages/dev/DevIntegrite';
+import DevSysteme from './pages/dev/DevSysteme';
 import OfflineBanner from './components/ui/OfflineBanner';
 
 function RequireAuth({ children, role }) {
@@ -59,6 +64,13 @@ export default function App() {
           <Route path="caisse" element={<AdminCaisse />} />
         </Route>
 
+        <Route path="/dev" element={<RequireAuth role="developer"><DevLayout /></RequireAuth>}>
+          <Route index element={<DevDashboard />} />
+          <Route path="erreurs" element={<DevErreurs />} />
+          <Route path="integrite" element={<DevIntegrite />} />
+          <Route path="systeme" element={<DevSysteme />} />
+        </Route>
+
         <Route path="/employe" element={<RequireAuth role="employee"><EmployeLayout /></RequireAuth>}>
           <Route index element={<EmployeJournee />} />
           <Route path="graphique" element={<EmployeGraphique />} />
@@ -69,6 +81,7 @@ export default function App() {
         <Route path="/" element={
           !user ? <Navigate to="/login" replace /> :
           user.role === 'admin' ? <Navigate to="/admin" replace /> :
+          user.role === 'developer' ? <Navigate to="/dev" replace /> :
           <Navigate to="/employe" replace />
         } />
         <Route path="*" element={<Navigate to="/" replace />} />
