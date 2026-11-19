@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { enqueue, replayQueue } from './offlineQueue';
+import { reportError } from './errorReporter';
 
 const BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://back-gsilure.vercel.app/api' : '/api');
 
@@ -21,6 +22,18 @@ api.interceptors.response.use(
       localStorage.removeItem('token');
       localStorage.removeItem('user');
       window.location.href = '/login';
+    }
+
+    // Panne réseau alors que l'appareil est en ligne, ou serveur injoignable (502/503/504) :
+    // le serveur ne peut pas les journaliser lui-même.
+    const statut = error.response?.status;
+    const url = String(error.config?.url || '').replace(BASE_URL, '');
+    if (navigator.onLine && (!error.response || [502, 503, 504].includes(statut))) {
+      reportError({
+        source: 'api', niveau: 'error', route: url, methode: String(error.config?.method || '').toUpperCase(), statut,
+        message: !error.response ? (error.code === 'ECONNABORTED' ? `Délai dépassé (${url})` : `Serveur injoignable (${url})`) : `Serveur indisponible (HTTP ${statut})`,
+        contexte: { code: error.code },
+      });
     }
 
     // Si hors ligne et méthode mutation : mettre en queue
